@@ -200,256 +200,259 @@ combined_df_credit = read_github_csv(file_url)#pd.read_csv(file, index_col=0,na_
 st.markdown("**Sample of the Credit Data:**")
 st.dataframe(combined_df_credit.head(20))
 
-# Assuming 'unique_col' (e.g., 'farmer_id') is the column that identifies farmers
-unique_col = 'culture_id'  # Replace this with the actual farmer ID or unique column name
+# # Assuming 'unique_col' (e.g., 'farmer_id') is the column that identifies farmers
+# unique_col = 'culture_id'  # Replace this with the actual farmer ID or unique column name
 
-# Step 1: Group by unique_col (farmers) and check if they have at least one complete row for credit details
-has_credit = combined_df_credit.groupby(unique_col).apply(
-    lambda group: group.dropna(subset=['credit_req_date', 'credit_auth_date', 'credit_exec_date']).shape[0] > 0
-).reset_index(name='has_credit')
+# # Step 1: Group by unique_col (farmers) and check if they have at least one complete row for credit details
+# has_credit = combined_df_credit.groupby(unique_col).apply(
+#     lambda group: group.dropna(subset=['credit_req_date', 'credit_auth_date', 'credit_exec_date']).shape[0] > 0
+# ).reset_index(name='has_credit')
+
+# # # Step 2: Separate farmers into two categories based on whether they have complete credit details or not
+# # has_credit_details = has_credit[has_credit['has_credit'] == True][unique_col]
+# # no_credit_details = has_credit[has_credit['has_credit'] == False][unique_col]
 
 # # Step 2: Separate farmers into two categories based on whether they have complete credit details or not
-# has_credit_details = has_credit[has_credit['has_credit'] == True][unique_col]
-# no_credit_details = has_credit[has_credit['has_credit'] == False][unique_col]
+# farmers_with_credit = has_credit[has_credit['has_credit'] == True][unique_col]
+# farmers_without_credit = has_credit[has_credit['has_credit'] == False][unique_col]
 
-# Step 2: Separate farmers into two categories based on whether they have complete credit details or not
-farmers_with_credit = has_credit[has_credit['has_credit'] == True][unique_col]
-farmers_without_credit = has_credit[has_credit['has_credit'] == False][unique_col]
+# # Step 3: Filter the original dataframe for rows belonging to these two groups
+# has_credit_details = combined_df_credit[combined_df_credit[unique_col].isin(farmers_with_credit)]
+# st.write(has_credit_details.culture_id.value_counts())
+# no_credit_details = combined_df_credit[combined_df_credit[unique_col].isin(farmers_without_credit)]
+# st.write(no_credit_details.culture_id.value_counts())
+# # Separate rows with and without credit details
+# #has_credit_details = combined_df_credit.dropna(subset=['credit_req_date', 'credit_auth_date', 'credit_exec_date'])
+# #no_credit_details = combined_df_credit[combined_df_credit[['credit_req_date', 'credit_auth_date', 'credit_exec_date']].isna().all(axis=1)]
+# st.write(has_credit_details)
+# st.write(no_credit_details)
+# # Function to process the remote sensing data for cumulative area
+# def process_rs_data(merged_df):
+#     rs_df = merged_df.filter(regex=('\d{4}-?\d{2}-?\d{2}$'))  # Date columns
+#     area_rs = rs_df.sum(axis=0)  # Summing values row-wise
+#     rs_df_combined = pd.DataFrame()
+#     rs_df_combined['Time'] = list(area_rs.index)
+#     rs_df_combined['Area(ha)'] = list(area_rs.values)
+#     rs_df_combined['Year'] = rs_df_combined['Time'].str[:4]
+#     rs_df_combined['Class'] = 'RS_' + rs_df_combined['Year']
+#     rs_df_combined['Time'] = pd.to_datetime(rs_df_combined['Time'])
+#     rs_df_combined['DOY'] = rs_df_combined['Time'].apply(lambda x: x.timetuple().tm_yday)
+#     return rs_df_combined
 
-# Step 3: Filter the original dataframe for rows belonging to these two groups
-has_credit_details = combined_df_credit[combined_df_credit[unique_col].isin(farmers_with_credit)]
-no_credit_details = combined_df_credit[combined_df_credit[unique_col].isin(farmers_without_credit)]
-# Separate rows with and without credit details
-#has_credit_details = combined_df_credit.dropna(subset=['credit_req_date', 'credit_auth_date', 'credit_exec_date'])
-#no_credit_details = combined_df_credit[combined_df_credit[['credit_req_date', 'credit_auth_date', 'credit_exec_date']].isna().all(axis=1)]
-st.write(has_credit_details)
-# Function to process the remote sensing data for cumulative area
-def process_rs_data(merged_df):
-    rs_df = merged_df.filter(regex=('\d{4}-?\d{2}-?\d{2}$'))  # Date columns
-    area_rs = rs_df.sum(axis=0)  # Summing values row-wise
-    rs_df_combined = pd.DataFrame()
-    rs_df_combined['Time'] = list(area_rs.index)
-    rs_df_combined['Area(ha)'] = list(area_rs.values)
-    rs_df_combined['Year'] = rs_df_combined['Time'].str[:4]
-    rs_df_combined['Class'] = 'RS_' + rs_df_combined['Year']
-    rs_df_combined['Time'] = pd.to_datetime(rs_df_combined['Time'])
-    rs_df_combined['DOY'] = rs_df_combined['Time'].apply(lambda x: x.timetuple().tm_yday)
-    return rs_df_combined
+# # Process both datasets
+# has_credit_df = process_rs_data(has_credit_details)
+# no_credit_df = process_rs_data(no_credit_details)
 
-# Process both datasets
-has_credit_df = process_rs_data(has_credit_details)
-no_credit_df = process_rs_data(no_credit_details)
+# # Convert credit dates to DOY
+# def convert_to_doy(date_string):
+#     date = pd.to_datetime(date_string)
+#     return date.dayofyear
 
-# Convert credit dates to DOY
-def convert_to_doy(date_string):
-    date = pd.to_datetime(date_string)
-    return date.dayofyear
+# # Extract DOY for all credit request, authorization, and execution dates
+# credit_req_doy = has_credit_details['credit_req_date'].apply(convert_to_doy).values
+# credit_auth_doy = has_credit_details['credit_auth_date'].dropna().apply(convert_to_doy).values
+# credit_exec_doy = has_credit_details['credit_exec_date'].dropna().apply(convert_to_doy).values
+#     # Visualization: Lagged Correlation and Box Plot in same row but different columns
+# fig, (ax_lag, ax_box) = plt.subplots(nrows=1, ncols=2, figsize=(16, 6))
 
-# Extract DOY for all credit request, authorization, and execution dates
-credit_req_doy = has_credit_details['credit_req_date'].apply(convert_to_doy).values
-credit_auth_doy = has_credit_details['credit_auth_date'].dropna().apply(convert_to_doy).values
-credit_exec_doy = has_credit_details['credit_exec_date'].dropna().apply(convert_to_doy).values
-    # Visualization: Lagged Correlation and Box Plot in same row but different columns
-fig, (ax_lag, ax_box) = plt.subplots(nrows=1, ncols=2, figsize=(16, 6))
-
-# Display dataframes in two columns
-col1, col2 = st.columns(2)
+# # Display dataframes in two columns
+# col1, col2 = st.columns(2)
     
-with col1:
-    st.markdown("**Sample agCelerant data with Credit Details**")
-    st.dataframe(has_credit_df.head())
+# with col1:
+#     st.markdown("**Sample agCelerant data with Credit Details**")
+#     st.dataframe(has_credit_df.head())
 
-with col2:
-    st.markdown("**Sample agCelerant data without Credit Details**")
-    st.dataframe(no_credit_df.head())
+# with col2:
+#     st.markdown("**Sample agCelerant data without Credit Details**")
+#     st.dataframe(no_credit_df.head())
 
-# List of years to plot
-years = has_credit_df['Time'].dt.year.unique()
+# # List of years to plot
+# years = has_credit_df['Time'].dt.year.unique()
 
-# Visualization: Plot cumulative flooded areas by year with two categories
-fig, axs = plt.subplots(nrows=2, ncols=3, figsize=(18, 12))
-axs = axs.flatten()  # Flatten the grid to iterate over each axis easily
-
-
-## 5. Boxplot Before and After Credit Events
-
-window = 7  # Days before and after the event
-# Loop through each year and plot the cumulative flooded areas
-for i, year in enumerate(years):
-    if i >= len(axs):  # Avoid index out of bounds
-        break
-
-    ax = axs[i]
-
-    # Plot "With Credit" data
-    year_df_with_credit = has_credit_df[has_credit_df['Time'].dt.year == year]
-    ax.plot(year_df_with_credit['DOY'], year_df_with_credit['Area(ha)'], marker='o', linestyle='-', label=f'With Credit {year}', color='blue')
-
-    # Plot "Without Credit" data
-    year_df_without_credit = no_credit_df[no_credit_df['Time'].dt.year == year]
-    ax.plot(year_df_without_credit['DOY'], year_df_without_credit['Area(ha)'], marker='x', linestyle='--', label=f'Without Credit {year}', color='red')
-
-    # Customize each subplot
-    ax.set_title(f'Cumulative Flooded Areas {year}', fontsize=10)
-    ax.set_xlabel('Day of Year (DOY)')
-    ax.set_ylabel('Cumulative Flooded Area (ha)')
-    ax.legend()
-    ax.grid(True)
+# # Visualization: Plot cumulative flooded areas by year with two categories
+# fig, axs = plt.subplots(nrows=2, ncols=3, figsize=(18, 12))
+# axs = axs.flatten()  # Flatten the grid to iterate over each axis easily
 
 
-st.subheader("Is there any difference in the flooded areas for plots with credit and without credit details?")
+# ## 5. Boxplot Before and After Credit Events
 
-# Hide unused subplots if there are fewer than 6 years
-for i in range(len(years), 6):
-    fig.delaxes(axs[i])
+# window = 7  # Days before and after the event
+# # Loop through each year and plot the cumulative flooded areas
+# for i, year in enumerate(years):
+#     if i >= len(axs):  # Avoid index out of bounds
+#         break
+
+#     ax = axs[i]
+
+#     # Plot "With Credit" data
+#     year_df_with_credit = has_credit_df[has_credit_df['Time'].dt.year == year]
+#     ax.plot(year_df_with_credit['DOY'], year_df_with_credit['Area(ha)'], marker='o', linestyle='-', label=f'With Credit {year}', color='blue')
+
+#     # Plot "Without Credit" data
+#     year_df_without_credit = no_credit_df[no_credit_df['Time'].dt.year == year]
+#     ax.plot(year_df_without_credit['DOY'], year_df_without_credit['Area(ha)'], marker='x', linestyle='--', label=f'Without Credit {year}', color='red')
+
+#     # Customize each subplot
+#     ax.set_title(f'Cumulative Flooded Areas {year}', fontsize=10)
+#     ax.set_xlabel('Day of Year (DOY)')
+#     ax.set_ylabel('Cumulative Flooded Area (ha)')
+#     ax.legend()
+#     ax.grid(True)
+
+
+# st.subheader("Is there any difference in the flooded areas for plots with credit and without credit details?")
+
+# # Hide unused subplots if there are fewer than 6 years
+# for i in range(len(years), 6):
+#     fig.delaxes(axs[i])
+# # Adjust layout to avoid overlapping subplots
+# plt.tight_layout()
+# st.pyplot(fig)
+
+# # Display the plot
+# st.subheader("Is there any relationship between credit and flooding activities for all years?")
+# st.markdown("""
+# - There seems to be a clear short-term relationship between credit execution and flooding, especially within the first few days after credit is granted. This is more evident in some years, particularly 2023 and 2024.
+# - The box plots reinforce the finding that, for some years (particularly 2023 and 2024), flooded areas tend to increase after credit execution, possibly indicating that these years experienced more significant events (such as floods) in response to financial interventions.
+# """)
+
+# # Define function to plot boxplots with colors and label adjustments
+# def plot_boxplot_before_after(ax, df, credit_date, label):
+#     before_date = df[df['DOY'] < credit_date]
+#     after_date = df[df['DOY'] >= credit_date]
+#     # Plot boxplots with colors and rotated labels
+#     box = ax.boxplot([before_date['Area(ha)'], after_date['Area(ha)']], labels=[f'{label} Before', f'{label} After'], patch_artist=True)
+
+#     # Customize the colors of the boxplots
+#     colors = ['#1f77b4', '#ff7f0e']  # Blue for before, orange for after
+#     for patch, color in zip(box['boxes'], colors):
+#         patch.set_facecolor(color)
+
+#     ax.set_title(f'Flooded Area Before and After {label}')
+#     # ax.set_xticklabels([f'{label} Before', f'{label} After'], rotation=45, ha='right')  
+#     ax.set_xticks([1, 2])  # Ensure 2 ticks for "Before" and "After"
+#     #ax.set_xticklabels([f'{label} Before', f'{label} After'], rotation=45, ha='right') 
+#     ax.set_xticklabels([f'Before Credit Execution', f'After Credit Execution'], rotation=45, ha='right') 
+#     ax.tick_params(axis='x', labelsize=10)  # Set the font size for the labels
+
+
+# # Boxplot Before and After Credit Events for each year (in 3 columns and 2 rows)
+# fig_box, axs_box = plt.subplots(2, 3, figsize=(18, 12))
+# axs_box = axs_box.flatten()  # Flatten to easily iterate over each subplot
+
+# for i, year in enumerate(years):
+#     if i >= len(axs_box):  # Avoid index out of bounds
+#         break
+
+#     year_df_with_credit = has_credit_df[has_credit_df['Time'].dt.year == year]
+
+#     # Credit request DOY
+#     if len(credit_req_doy) > 0:
+#         plot_boxplot_before_after(axs_box[i], year_df_with_credit, credit_req_doy[0], f'{year} Credit Request')
+#     # Credit authorization DOY
+#     if len(credit_auth_doy) > 0:
+#         plot_boxplot_before_after(axs_box[i], year_df_with_credit, credit_auth_doy[0], f'{year} Credit Authorization')
+#     # Credit execution DOY
+#     if len(credit_exec_doy) > 0:
+#         plot_boxplot_before_after(axs_box[i], year_df_with_credit, credit_exec_doy[0], f'{year} Credit Execution')
+
 # Adjust layout to avoid overlapping subplots
-plt.tight_layout()
-st.pyplot(fig)
+# st.markdown('Before and After Credit Events for each year')
+# plt.tight_layout()
+# #st.pyplot(fig_box) --can be reactivated later
+# container = st.container()
+# #ontainer.write("how significant increases in flooded areas after credit execution, which could point to a stronger relationship between credit and increased flooding activity in these years.")
 
-# Display the plot
-st.subheader("Is there any relationship between credit and flooding activities for all years?")
-st.markdown("""
-- There seems to be a clear short-term relationship between credit execution and flooding, especially within the first few days after credit is granted. This is more evident in some years, particularly 2023 and 2024.
-- The box plots reinforce the finding that, for some years (particularly 2023 and 2024), flooded areas tend to increase after credit execution, possibly indicating that these years experienced more significant events (such as floods) in response to financial interventions.
-""")
+# st.markdown("""
+# **Box Plots for Flooded Area Before and After Credit Execution**:
+# - **Visual Comparison**:
+#     - In most years (2019, 2020, 2021, 2022), the median flooded area appears relatively stable before and after credit execution, but **2023** and **2024** stand out with larger differences.
+#     - **2023** shows a much larger flooded area after credit execution, while **2024** also indicates a noticeable increase in flooded area after credit execution.
+# - **Outliers**: Some outliers (like in 2023) suggest that there were exceptional cases of increased flooded areas after credit execution.
+# - **Conclusion**: While credit execution doesn't seem to drastically change the median flooded area for all years, **2023** and **2024** show significant increases in flooded areas after credit execution, which could point to a stronger relationship between credit and increased flooding activity in these years.
+# """)
 
-# Define function to plot boxplots with colors and label adjustments
-def plot_boxplot_before_after(ax, df, credit_date, label):
-    before_date = df[df['DOY'] < credit_date]
-    after_date = df[df['DOY'] >= credit_date]
-    # Plot boxplots with colors and rotated labels
-    box = ax.boxplot([before_date['Area(ha)'], after_date['Area(ha)']], labels=[f'{label} Before', f'{label} After'], patch_artist=True)
-
-    # Customize the colors of the boxplots
-    colors = ['#1f77b4', '#ff7f0e']  # Blue for before, orange for after
-    for patch, color in zip(box['boxes'], colors):
-        patch.set_facecolor(color)
-
-    ax.set_title(f'Flooded Area Before and After {label}')
-    # ax.set_xticklabels([f'{label} Before', f'{label} After'], rotation=45, ha='right')  
-    ax.set_xticks([1, 2])  # Ensure 2 ticks for "Before" and "After"
-    #ax.set_xticklabels([f'{label} Before', f'{label} After'], rotation=45, ha='right') 
-    ax.set_xticklabels([f'Before Credit Execution', f'After Credit Execution'], rotation=45, ha='right') 
-    ax.tick_params(axis='x', labelsize=10)  # Set the font size for the labels
-
-
-# Boxplot Before and After Credit Events for each year (in 3 columns and 2 rows)
-fig_box, axs_box = plt.subplots(2, 3, figsize=(18, 12))
-axs_box = axs_box.flatten()  # Flatten to easily iterate over each subplot
-
-for i, year in enumerate(years):
-    if i >= len(axs_box):  # Avoid index out of bounds
-        break
-
-    year_df_with_credit = has_credit_df[has_credit_df['Time'].dt.year == year]
-
-    # Credit request DOY
-    if len(credit_req_doy) > 0:
-        plot_boxplot_before_after(axs_box[i], year_df_with_credit, credit_req_doy[0], f'{year} Credit Request')
-    # Credit authorization DOY
-    if len(credit_auth_doy) > 0:
-        plot_boxplot_before_after(axs_box[i], year_df_with_credit, credit_auth_doy[0], f'{year} Credit Authorization')
-    # Credit execution DOY
-    if len(credit_exec_doy) > 0:
-        plot_boxplot_before_after(axs_box[i], year_df_with_credit, credit_exec_doy[0], f'{year} Credit Execution')
-
-# Adjust layout to avoid overlapping subplots
-st.markdown('Before and After Credit Events for each year')
-plt.tight_layout()
-st.pyplot(fig_box)
-container = st.container()
-#ontainer.write("how significant increases in flooded areas after credit execution, which could point to a stronger relationship between credit and increased flooding activity in these years.")
-
-st.markdown("""
-**Box Plots for Flooded Area Before and After Credit Execution**:
-- **Visual Comparison**:
-    - In most years (2019, 2020, 2021, 2022), the median flooded area appears relatively stable before and after credit execution, but **2023** and **2024** stand out with larger differences.
-    - **2023** shows a much larger flooded area after credit execution, while **2024** also indicates a noticeable increase in flooded area after credit execution.
-- **Outliers**: Some outliers (like in 2023) suggest that there were exceptional cases of increased flooded areas after credit execution.
-- **Conclusion**: While credit execution doesn't seem to drastically change the median flooded area for all years, **2023** and **2024** show significant increases in flooded areas after credit execution, which could point to a stronger relationship between credit and increased flooding activity in these years.
-""")
-
-# Post hoc analysis
-st.subheader('Post hoc analysis for only 2023 data')
-st.markdown("""
-            - The linear regression suggests a positive relationship between days_since_credit and Area(ha), but this relationship is not statistically significant (p-value = 0.225).
-            - The model explains 60% of the variability in the Area(ha) data, which is moderate, but the overall significance of the model is weak.
-             - P>|t| for days_since_credit is 0.225, which is higher than the significance level of 0.05, meaning this predictor is not statistically significant. 
-            In simpler terms, we cannot conclude with high confidence that days_since_credit has a significant effect on the Area(ha).
+# # Post hoc analysis
+# st.subheader('Post hoc analysis for only 2023 data')
+# st.markdown("""
+#             - The linear regression suggests a positive relationship between days_since_credit and Area(ha), but this relationship is not statistically significant (p-value = 0.225).
+#             - The model explains 60% of the variability in the Area(ha) data, which is moderate, but the overall significance of the model is weak.
+#              - P>|t| for days_since_credit is 0.225, which is higher than the significance level of 0.05, meaning this predictor is not statistically significant. 
+#             In simpler terms, we cannot conclude with high confidence that days_since_credit has a significant effect on the Area(ha).
             
-            """)
+#             """)
 
-sub_2023 = has_credit_df[has_credit_df['Year']=='2023']
-def linear_regression(df, credit_date):
-    df['days_since_credit'] = df['DOY'] - credit_date
-    X = sm.add_constant(df['days_since_credit'])  # Adding constant for intercept
-    y = df['Area(ha)']
-    model = sm.OLS(y, X).fit()
-    return model
+# sub_2023 = has_credit_df[has_credit_df['Year']=='2023']
+# def linear_regression(df, credit_date):
+#     df['days_since_credit'] = df['DOY'] - credit_date
+#     X = sm.add_constant(df['days_since_credit'])  # Adding constant for intercept
+#     y = df['Area(ha)']
+#     model = sm.OLS(y, X).fit()
+#     return model
 
-# Running linear regression for the period after credit execution
-regression_model = linear_regression(sub_2023[sub_2023['DOY'] >= credit_exec_doy[0]], credit_exec_doy[0])
+# # Running linear regression for the period after credit execution
+# regression_model = linear_regression(sub_2023[sub_2023['DOY'] >= credit_exec_doy[0]], credit_exec_doy[0])
 
-# Displaying regression results
-st.write(regression_model.summary())
+# # Displaying regression results
+# st.write(regression_model.summary())
 
-# _________________Anova analysis
+# # _________________Anova analysis
 
-# Function to divide data into 'before' and 'after' credit execution
-def divide_before_after(df, credit_date):
-    before_credit = df[df['DOY'] < credit_date]['Area(ha)']
-    after_credit = df[df['DOY'] >= credit_date]['Area(ha)']
-    return before_credit, after_credit
+# # Function to divide data into 'before' and 'after' credit execution
+# def divide_before_after(df, credit_date):
+#     before_credit = df[df['DOY'] < credit_date]['Area(ha)']
+#     after_credit = df[df['DOY'] >= credit_date]['Area(ha)']
+#     return before_credit, after_credit
 
-# Assuming you have 'has_credit_df' dataframe and 'credit_exec_doy' contains the execution dates for each year
-years = has_credit_df['Time'].dt.year.unique()
+# # Assuming you have 'has_credit_df' dataframe and 'credit_exec_doy' contains the execution dates for each year
+# years = has_credit_df['Time'].dt.year.unique()
 
-# Initialize an empty list to store ANOVA results
-anova_results = []
+# # Initialize an empty list to store ANOVA results
+# anova_results = []
 
-# Loop through each year and perform ANOVA
-for year in years:
-    #st.write(f"### Year: {year}")
+# # Loop through each year and perform ANOVA
+# for year in years:
+#     #st.write(f"### Year: {year}")
 
-    # Filter data for the current year
-    year_df_with_credit = has_credit_df[has_credit_df['Time'].dt.year == year]
+#     # Filter data for the current year
+#     year_df_with_credit = has_credit_df[has_credit_df['Time'].dt.year == year]
 
-    # Get the credit execution date for the current year
-    credit_exec_date = credit_exec_doy[0]  # Replace with actual execution date per year if available
+#     # Get the credit execution date for the current year
+#     credit_exec_date = credit_exec_doy[0]  # Replace with actual execution date per year if available
 
-    # Divide the flooded area data into before and after credit execution
-    before_credit, after_credit = divide_before_after(year_df_with_credit, credit_exec_date)
+#     # Divide the flooded area data into before and after credit execution
+#     before_credit, after_credit = divide_before_after(year_df_with_credit, credit_exec_date)
 
-    # Perform one-way ANOVA
-    anova_result = stats.f_oneway(before_credit, after_credit)
+#     # Perform one-way ANOVA
+#     anova_result = stats.f_oneway(before_credit, after_credit)
 
-    # Store results in the list as a dictionary
-    anova_results.append({
-        'Year': year,
-        'F-statistic': round(anova_result.statistic, 3),
-        'p-value': round(anova_result.pvalue, 4),
-        'Significant': 'Yes' if anova_result.pvalue < 0.05 else 'no statistically significant difference between the flooded areas before and after credit execution for {year}'
-    })
+#     # Store results in the list as a dictionary
+#     anova_results.append({
+#         'Year': year,
+#         'F-statistic': round(anova_result.statistic, 3),
+#         'p-value': round(anova_result.pvalue, 4),
+#         'Significant': 'Yes' if anova_result.pvalue < 0.05 else 'no statistically significant difference between the flooded areas before and after credit execution for {year}'
+#     })
 
-    # Write ANOVA result
-    # st.write(f"ANOVA Result for {year}: F-statistic = {anova_result.statistic}, p-value = {anova_result.pvalue}")
-    # if anova_result.pvalue < 0.05:
-    #     st.write(f"There is a statistically significant difference between the flooded areas before and after credit execution for {year}.")
-    # else:
-    #     st.write(f"There is no statistically significant difference between the flooded areas before and after credit execution for {year}.")
+#     # Write ANOVA result
+#     # st.write(f"ANOVA Result for {year}: F-statistic = {anova_result.statistic}, p-value = {anova_result.pvalue}")
+#     # if anova_result.pvalue < 0.05:
+#     #     st.write(f"There is a statistically significant difference between the flooded areas before and after credit execution for {year}.")
+#     # else:
+#     #     st.write(f"There is no statistically significant difference between the flooded areas before and after credit execution for {year}.")
 
-# Convert the results into a DataFrame
-anova_df = pd.DataFrame(anova_results)
+# # Convert the results into a DataFrame
+# anova_df = pd.DataFrame(anova_results)
 
-# Display the results in a table format
-st.write("### ANOVA Results Table")
-st.dataframe(anova_df)
+# # Display the results in a table format
+# st.write("### ANOVA Results Table")
+# st.dataframe(anova_df)
 
-# Adjust layout to avoid overlap
-plt.tight_layout()
+# # Adjust layout to avoid overlap
+# plt.tight_layout()
 
-# Display the full grid of plots
-#st.pyplot(fig)
+# # Display the full grid of plots
+# #st.pyplot(fig)
 
 #_____________________________________GIE analysis________________________________________-_______________________________
 st.header("GIE Analysis")
@@ -469,7 +472,7 @@ has_credit_details = data[
 #st.sidebar.header("GIE Based Analysis-Has")
 # Filter GIEs with all credit details (credit_req_date, credit_auth_date, credit_exec_date)
 #has_credit_details = data.dropna(subset=['credit_req_date', 'credit_auth_date', 'credit_exec_date'],how='all')
-gies_with_credit_details = has_credit_details['gie_name'].unique()
+gies_with_credit_details = data['gie_name'].unique()
 #%%
 # Display number of all unique GIEs
 all_gies = data['gie_name'].unique()
