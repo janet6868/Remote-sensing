@@ -550,7 +550,7 @@ ax_irrigation.set_ylabel('Count')
 ax_irrigation.grid(True)
 st.pyplot(fig_irrigation)
 
-
+st.write(' Visualizes the credit request, authorization, and execution process for different operating accounts ( eg gasoil irrigation) in a timeline format. This allows you to easily track the progress of each operating account’s credit process over time.')
 # Prepare the data for timeline visualization
 timeline_data = []
 for idx, row in filtered_data.iterrows():
