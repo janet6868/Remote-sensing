@@ -539,7 +539,7 @@ ax.grid(True)
 ax.legend()
 st.pyplot(fig)
 
-st.title('Irrigation types for {selected_gie}')
+
 # Bar chart for Irrigation Type
 st.subheader(f"Count of Irrigation Types for: {selected_gie}")
 irrigation_type_counts = filtered_data['irrigation_type'].value_counts()
@@ -551,7 +551,7 @@ ax_irrigation.set_ylabel('Count')
 ax_irrigation.grid(True)
 st.pyplot(fig_irrigation)
 
-st.title('Operations accounts for {selected_gie}')
+st.title(f'Operations accounts for {selected_gie}')
 st.write(' Visualizes the credit request, authorization, and execution process for different operating accounts ( eg gasoil irrigation) in a timeline format. This allows you to easily track the progress of each operating account’s credit process over time.')
 # Prepare the data for timeline visualization
 timeline_data = []
