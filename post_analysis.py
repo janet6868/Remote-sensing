@@ -36,7 +36,7 @@ import os
 import glob
 import pandas as pd
 # Use the full page instead of a narrow central column
-st.set_page_config(layout="centered")
+st.set_page_config(layout="wide")
 # Title of the Streamlit App
 st.title("Paddy Flooding Detection using Sentinel 2 Analysis (2019-2024)")
 import streamlit as st
