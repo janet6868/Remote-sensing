@@ -198,7 +198,7 @@ file_url ='https://github.com/ICRISAT-Senegal/Remote-sensing/blob/main/merged_cr
 combined_df_credit = read_github_csv(file_url)#pd.read_csv(file, index_col=0,na_values=np.nan)
 
 st.markdown("**Sample of the Credit Data:**")
-#st.dataframe(combined_df_credit.head())
+st.dataframe(combined_df_credit.head(20))
 
 # Separate rows with and without credit details
 has_credit_details = combined_df_credit.dropna(subset=['credit_req_date', 'credit_auth_date', 'credit_exec_date'])
@@ -238,11 +238,11 @@ col1, col2 = st.columns(2)
     
 with col1:
     st.markdown("**Sample agCelerant data with Credit Details**")
-    st.dataframe(has_credit_df.head(), height=200)
+    st.dataframe(has_credit_df.head())
 
 with col2:
     st.markdown("**Sample agCelerant data without Credit Details**")
-    st.dataframe(no_credit_df.head(), height=200)
+    st.dataframe(no_credit_df.head())
 
 # List of years to plot
 years = has_credit_df['Time'].dt.year.unique()
