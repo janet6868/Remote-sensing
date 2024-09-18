@@ -53,7 +53,7 @@ END_HARVESTING = 259    # 16 Sep
 def read_github_csv(url):
     """Read CSV from GitHub URL."""
     raw_url = url.replace("github.com", "raw.githubusercontent.com").replace("/blob/", "/")
-    return pd.read_csv(raw_url)
+    return pd.read_csv(raw_url,index_col=0)
 
 def process_rs_data(df):
     rs_df = df.filter(regex=('\d{4}-?\d{2}-?\d{2}$'))
@@ -127,26 +127,78 @@ process_data(agcelerant_urls, "2019-2024 Cumulative Flooded Areas using agCelera
 
 #___________________________________________________________credit information________________________-
 
+
 # Header for Credit Information
 st.header("**3. Credit Information**")
+
+# Initial Hypotheses
+st.subheader("Initial Hypotheses")
+st.markdown("""
+- **agCelerant Data**:
+    - Increase in flooding → Early promise of credit.
+    - Decrease in flooding → Delay in the promise of credit.
+""")
+
+# Learnings from Data Exploration
+st.subheader("Learnings from Exploration of the Data")
+
+st.subheader("First Spike Hypothesis")
+st.markdown("""
+- Some GIEs might have internal financial reserves that are used.
+- Some GIEs have good creditworthiness and could use this to get a loan from the bank.
+""")
+
+st.subheader("Second Spike Hypothesis")
+st.markdown("""
+- Reaction by the second category of farmers (those who lack internal reserves and thin file GIEs) to the promise of credit.
+- Or the same group has learned about the decisions of the banks on credit issuance.
+""")
+
+st.subheader("Early Flooding Hypothesis")
+st.markdown("""
+- Early flooding explains/reflects the credit disbursement process.
+- Everyone starts the cropping cycle without any payment. The cycle is based on promises or commitments by the GIE to get credit.
+- Some unions have reserves to start planting before funds are released.
+- The early start does not necessarily mean the money has been released yet.
+""")
+
+# New Hypothesis
+st.subheader("New Hypothesis")
+st.markdown("""
+- **Creditworthiness and Reserves of GIE Explain the Monotonic Pattern of Flooding**
+    - Does the absence of a plateau imply reserves?
+    - Is there a significant difference between the lengths of the plateaus? Does a significant difference in the length of the plateau reflect different access to credit? 
+    - Extract the date of the credit committee for the Dry hot seasons from 2017-2024 years.
+    - Explore the topology of GIE.
+""")
+
+# Action Points
+st.subheader("Action Points")
+st.markdown("""
+- Consider **quantitative data analysis**: This approach is more process-based and accumulates evidence from many points to understand how the accumulation of events (like floods) reflects credit disbursement timelines.
+- Zoom in to analyze **GIEs**:
+    - See their performance in terms of their decision to go into production.
+    - The commitment of credit & the farmers' response.
+- Extract boundaries and calculate the total areas for confirmation with "Soule".
+- Investigate the date of credit committee meetings and decisions for each year.
+- Investigate when money starts flowing for them (GIE).
+""")
+
 st.markdown("General Information: The dataset contains 4,608 rows and 258 columns. "
             "The `parcel_cod` column has 596 unique values, indicating multiple parcels. "
             "The `operating_account` column contains 163 unique types of operations, "
             "with 'Assurance CNAAS' being the most frequent. "
             "There are missing data in `credit_auth_date` and `credit_exec_date`.")
 
-# Credit data file uploader
-#uploaded_credit_files = st.file_uploader("Click to upload Credit Data CSV files", accept_multiple_files=True)
-# import math
-# if uploaded_credit_files:
-    #file = r"G:\My Drive\Remote_sensing\SRV_flooding_detection_models\Dagana\agcelerant_working_files\dry_season_agcelerant\data\dhs\merged_cr_rs_data.csv"
-    #for file in uploaded_credit_files:
+
+
+#_____________________________________________________________uuuuuuuuuuuuuu____________________________
 file_url ='https://github.com/ICRISAT-Senegal/Remote-sensing/blob/main/merged_cr_rs_data.csv'
 #read_github_csv(url)
 combined_df_credit = read_github_csv(file_url)#pd.read_csv(file, index_col=0,na_values=np.nan)
 
 st.markdown("**Sample of the Credit Data:**")
-st.dataframe(combined_df_credit.head(), height=200)
+st.dataframe(combined_df_credit.head())
 
 # Separate rows with and without credit details
 has_credit_details = combined_df_credit.dropna(subset=['credit_req_date', 'credit_auth_date', 'credit_exec_date'])
@@ -241,12 +293,7 @@ st.markdown("""
 - There seems to be a clear short-term relationship between credit execution and flooding, especially within the first few days after credit is granted. This is more evident in some years, particularly 2023 and 2024.
 - The box plots reinforce the finding that, for some years (particularly 2023 and 2024), flooded areas tend to increase after credit execution, possibly indicating that these years experienced more significant events (such as floods) in response to financial interventions.
 """)
-#st.pyplot(fig_lag)
-# st.markdown("""
-# #### Boxplots:
-# """)
-# # plt.tight_layout()
-# st.pyplot(fig_box)
+
 # Define function to plot boxplots with colors and label adjustments
 def plot_boxplot_before_after(ax, df, credit_date, label):
     before_date = df[df['DOY'] < credit_date]
