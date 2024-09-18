@@ -12,6 +12,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime
 import seaborn as sns
+from io import StringIO
 
 import streamlit as st
 import pandas as pd
@@ -73,7 +74,7 @@ dagana_flooding_data_urls = [
 flooding_dataframes = []
 for url in dagana_flooding_data_urls:
     try:
-        df = pd.read_csv(url)
+        df = pd.read_csv(url, delimiter=',', error_bad_lines=False, engine='python').drop(columns=['flooding_date'], errors='ignore')
         flooding_dataframes.append(df)
     except Exception as e:
         st.error(f"Error reading {url}: {e}")
@@ -125,11 +126,10 @@ agcelerant_data_urls = [
 agcelerant_dataframes = []
 for url in agcelerant_data_urls:
     try:
-        df = pd.read_csv(url)
+        df = pd.read_csv(url, delimiter=',', error_bad_lines=False, engine='python').drop(columns=['flooding_date'], errors='ignore')
         agcelerant_dataframes.append(df)
     except Exception as e:
         st.error(f"Error reading {url}: {e}")
-
 # Combine and process agCelerant data
 if agcelerant_dataframes:
     combined_df_ag = pd.concat(agcelerant_dataframes, ignore_index=True)
