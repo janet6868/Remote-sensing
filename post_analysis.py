@@ -74,7 +74,7 @@ dagana_flooding_data_urls = [
 flooding_dataframes = []
 for url in dagana_flooding_data_urls:
     try:
-        df = pd.read_csv(url, delimiter=',', error_bad_lines=False, engine='python').drop(columns=['flooding_date'], errors='ignore')
+        df = pd.read_csv(url, delimiter=',', engine='python').drop(columns=['flooding_date'], errors='ignore')
         print(df.head())
         flooding_dataframes.append(df)
     except Exception as e:
@@ -127,7 +127,7 @@ agcelerant_data_urls = [
 agcelerant_dataframes = []
 for url in agcelerant_data_urls:
     try:
-        df = pd.read_csv(url, delimiter=',', error_bad_lines=False, engine='python').drop(columns=['flooding_date'], errors='ignore') #, delimiter=',', error_bad_lines=False, engine='python'
+        df = pd.read_csv(url, delimiter=','], engine='python').drop(columns=['flooding_date'], errors='ignore') #, delimiter=',', error_bad_lines=False, engine='python'
         print(df.head())
         agcelerant_dataframes.append(df)
     except Exception as e:
