@@ -129,7 +129,7 @@ process_data(agcelerant_urls, "2019-2024 Cumulative Flooded Areas using agCelera
 
 
 # Header for Credit Information
-st.header("**3. Credit Information**")
+st.header("3. Credit Information")
 
 # Initial Hypotheses
 st.subheader("Initial Hypotheses")
@@ -455,7 +455,7 @@ st.dataframe(combined_df_credit.head(20))
 # #st.pyplot(fig)
 
 #_____________________________________GIE analysis________________________________________-_______________________________
-st.header("GIE Analysis")
+st.header("4. GIE Analysis")
 # Load the merged data
 data = combined_df_credit.copy()
 # Convert None to empty strings
@@ -612,7 +612,7 @@ st.dataframe(filtered_data)
 
 #________________________________________________________PPPP___________________________________
 # Prediction
-st.header('**Estimation of the Flooded area using growth Models**')
+st.header('4. Estimation of the Flooded area using growth Models')
 #st.subheader('**Logistics groth model**')
 # Title and description
 st.title("Growth Curve: Logistic")
