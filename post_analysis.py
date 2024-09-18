@@ -39,16 +39,24 @@ import pandas as pd
 st.set_page_config(layout="centered")
 # Title of the Streamlit App
 st.title("Paddy Flooding Detection using Sentinel 2 Analysis (2019-2024)")
+import streamlit as st
+import pandas as pd
+import matplotlib.pyplot as plt
+from datetime import datetime
 
-# Dates for planting and harvesting
-start_planting = datetime.strptime('2023-02-15', '%Y-%m-%d').timetuple().tm_yday
-end_planting = datetime.strptime('2023-03-15', '%Y-%m-%d').timetuple().tm_yday
-start_harvesting = datetime.strptime('2023-07-05', '%Y-%m-%d').timetuple().tm_yday
-end_harvesting = datetime.strptime('2023-09-16', '%Y-%m-%d').timetuple().tm_yday
+# Constants
+START_PLANTING = 46  # 15 Feb
+END_PLANTING = 74    # 15 Mar
+START_HARVESTING = 186  # 5 Jul
+END_HARVESTING = 259    # 16 Sep
 
-# Function to process data
-def process_rs_data(merged_df):
-    rs_df = merged_df.filter(regex=('\d{4}-?\d{2}-?\d{2}$'))
+def read_github_csv(url):
+    """Read CSV from GitHub URL."""
+    raw_url = url.replace("github.com", "raw.githubusercontent.com").replace("/blob/", "/")
+    return pd.read_csv(raw_url)
+
+def process_rs_data(df):
+    rs_df = df.filter(regex=('\d{4}-?\d{2}-?\d{2}$'))
     area_rs = rs_df.sum(axis=0)
     rs_df_combined = pd.DataFrame({
         'Time': area_rs.index,
@@ -60,230 +68,62 @@ def process_rs_data(merged_df):
     rs_df_combined['DOY'] = rs_df_combined['Time'].dt.dayofyear
     return rs_df_combined
 
-# Replace with your actual GitHub repository raw URLs
-dagana_flooding_data_urls = [
-    'https://github.com/ICRISAT-Senegal/Remote-sensing/blob/main/flooding_data_2019.csv',
-    'https://github.com/ICRISAT-Senegal/Remote-sensing/blob/main/flooding_data_2020.csv',
-    'https://github.com/ICRISAT-Senegal/Remote-sensing/blob/main/flooding_data_2021.csv',
-    'https://github.com/ICRISAT-Senegal/Remote-sensing/blob/main/flooding_data_2022.csv',
-    'https://github.com/ICRISAT-Senegal/Remote-sensing/blob/main/flooding_data_2023.csv',
-    'https://github.com/ICRISAT-Senegal/Remote-sensing/blob/main/flooding_data_2024.csv'
-]
-
-# Read flooding data from GitHub
-flooding_dataframes = []
-for url in dagana_flooding_data_urls:
-    try:
-        df = pd.read_csv(url, delimiter=',', engine='python').drop(columns=['flooding_date'], errors='ignore')
-        print(df.head())
-        flooding_dataframes.append(df)
-    except Exception as e:
-        st.error(f"Error reading {url}: {e}")
-
-# Combine and process Dagana flooding data
-if flooding_dataframes:
-    combined_df_dagana = pd.concat(flooding_dataframes, axis=1)
-    combined_df_dagana = combined_df_dagana.loc[:, ~combined_df_dagana.columns.duplicated()]
-    dag_rs_df = process_rs_data(combined_df_dagana)
-    
-    # Plotting the Cumulative Area for Dagana
-    years = dag_rs_df['Time'].dt.year.unique()
+def plot_cumulative_area(df, title):
+    """Plot cumulative flooded area."""
+    years = df['Time'].dt.year.unique()
     fig, ax = plt.subplots(figsize=(10, 6))
 
     for year in years:
-        year_df = dag_rs_df[dag_rs_df['Time'].dt.year == year]
+        year_df = df[df['Time'].dt.year == year]
         ax.plot(year_df['DOY'], year_df['Area(ha)'], marker='o', linestyle='-', label=f'RS Area {year}')
 
-    ax.axvline(start_planting, color='blue', linestyle='--', label='Start Planting (15 Feb)')
-    ax.axvline(end_planting, color='green', linestyle='--', label='End Planting (15 Mar)')
-    ax.axvline(start_harvesting, color='orange', linestyle='--', label='Start Harvesting (5 Jul)')
-    ax.axvline(end_harvesting, color='red', linestyle='--', label='End Harvesting (16 Sep)')
+    ax.axvline(START_PLANTING, color='blue', linestyle='--', label='Start Planting (15 Feb)')
+    ax.axvline(END_PLANTING, color='green', linestyle='--', label='End Planting (15 Mar)')
+    ax.axvline(START_HARVESTING, color='orange', linestyle='--', label='Start Harvesting (5 Jul)')
+    ax.axvline(END_HARVESTING, color='red', linestyle='--', label='End Harvesting (16 Sep)')
 
-    ax.set_title('2019-2024 Cumulative Flooded Areas using Dagana Plots')
+    ax.set_title(title)
     ax.set_xlabel('Day of Year (DOY)')
     ax.set_ylabel('Area (ha)')
     ax.grid(True)
     ax.legend()
     
-    col1, col2 = st.columns([3, 1])
-    col1.pyplot(fig)
-    col2.subheader("Dagana Data Sample")
-    col2.write(dag_rs_df.head(20))
-else:
-    st.warning("No Dagana flooding data available.")
+    return fig
 
-# agCelerant Section
+def process_data(urls, title):
+    """Process and plot data from a list of URLs."""
+    dataframes = []
+    for url in urls:
+        try:
+            df = read_github_csv(url).drop(columns=['flooding_date'], errors='ignore')
+            dataframes.append(df)
+        except Exception as e:
+            st.error(f"Error reading {url}: {e}")
+
+    if dataframes:
+        combined_df = pd.concat(dataframes, axis=1)
+        combined_df = combined_df.loc[:, ~combined_df.columns.duplicated()]
+        processed_df = process_rs_data(combined_df)
+        
+        fig = plot_cumulative_area(processed_df, title)
+        
+        col1, col2 = st.columns([3, 1])
+        col1.pyplot(fig)
+        col2.subheader("Data Sample")
+        col2.write(processed_df.head(20))
+    else:
+        st.warning(f"No {title} data available.")
+
+# Dagana Flooding Data
+st.header("**1. Dagana Plots**")
+dagana_urls = [f'https://github.com/ICRISAT-Senegal/Remote-sensing/blob/main/flooding_data_{year}.csv' for year in range(2019, 2025)]
+process_data(dagana_urls, "2019-2024 Cumulative Flooded Areas using Dagana Plots")
+
+# agCelerant Data
 st.header("**2. agCelerant Plots**")
-agcelerant_data_urls = [
-    'https://github.com/ICRISAT-Senegal/Remote-sensing/blob/main/combined_flooding_data_2019.csv',
-    'https://github.com/ICRISAT-Senegal/Remote-sensing/blob/main/combined_flooding_data_2020.csv',
-    'https://github.com/ICRISAT-Senegal/Remote-sensing/blob/main/combined_flooding_data_2021.csv',
-    'https://github.com/ICRISAT-Senegal/Remote-sensing/blob/main/combined_flooding_data_2022.csv',
-    'https://github.com/ICRISAT-Senegal/Remote-sensing/blob/main/combined_flooding_data_2023.csv',
-    'https://github.com/ICRISAT-Senegal/Remote-sensing/blob/main/combined_flooding_data_2024.csv'
-]
+agcelerant_urls = [f'https://github.com/ICRISAT-Senegal/Remote-sensing/blob/main/combined_flooding_data_{year}.csv' for year in range(2019, 2025)]
+process_data(agcelerant_urls, "2019-2024 Cumulative Flooded Areas using agCelerant Plots")
 
-# Read agCelerant data from GitHub
-agcelerant_dataframes = []
-for url in agcelerant_data_urls:
-    try:
-        df = pd.read_csv(url, delimiter=','], engine='python').drop(columns=['flooding_date'], errors='ignore') #, delimiter=',', error_bad_lines=False, engine='python'
-        print(df.head())
-        agcelerant_dataframes.append(df)
-    except Exception as e:
-        st.error(f"Error reading {url}: {e}")
-# Combine and process agCelerant data
-if agcelerant_dataframes:
-    combined_df_ag = pd.concat(agcelerant_dataframes, ignore_index=True)
-    ag_rs_df = process_rs_data(combined_df_ag)
-    
-    # Plotting the Cumulative Area for agCelerant
-    years = ag_rs_df['Time'].dt.year.unique()
-    fig, ax = plt.subplots(figsize=(10, 6))
-
-    for year in years:
-        year_df = ag_rs_df[ag_rs_df['Time'].dt.year == year]
-        ax.plot(year_df['DOY'], year_df['Area(ha)'], marker='o', linestyle='-', label=f'RS Area {year}')
-
-    ax.axvline(start_planting, color='blue', linestyle='--', label='Start Planting (15 Feb)')
-    ax.axvline(end_planting, color='green', linestyle='--', label='End Planting (15 Mar)')
-    ax.axvline(start_harvesting, color='orange', linestyle='--', label='Start Harvesting (5 Jul)')
-    ax.axvline(end_harvesting, color='red', linestyle='--', label='End Harvesting (16 Sep)')
-
-    ax.set_title('2019-2024 Cumulative Flooded Areas using agCelerant Plots')
-    ax.set_xlabel('Day of Year (DOY)')
-    ax.set_ylabel('Area (ha)')
-    ax.grid(True)
-    ax.legend()
-    
-    col3, col4 = st.columns([3, 1])
-    col3.pyplot(fig)
-    col4.write(ag_rs_df.head(20))
-else:
-    st.warning("No agCelerant data available.")
-
-
-# # Sidebar for file uploads
-# #st.sidebar.header("Upload Data")
-
-# start_planting = datetime.strptime('2023-02-15', '%Y-%m-%d').timetuple().tm_yday
-# end_planting = datetime.strptime('2023-03-15', '%Y-%m-%d').timetuple().tm_yday
-# start_harvesting = datetime.strptime('2023-07-05', '%Y-%m-%d').timetuple().tm_yday
-# end_harvesting = datetime.strptime('2023-09-16', '%Y-%m-%d').timetuple().tm_yday
-# # Dagana Region Section
-# st.header("**1. Dagana Region**")
-
-# def read_flooding_csv_files(directory):
-#     # Dictionaries to store DataFrames
-#     combined_dataframes = []
-#     flooding_dataframes = []
-
-#     # Get all CSV files in the directory
-#     combined_files = glob.glob(os.path.join(directory, 'combined_flooding_data_*.csv'))
-#     flooding_files = glob.glob(os.path.join(directory, 'flooding_data_*.csv'))
-
-#     # Read combined flooding data files
-#     for file in combined_files:
-#         year = os.path.basename(file).split('_')[-1].split('.')[0]
-#         df = pd.read_csv(file)
-#         combined_dataframes.append(df)
-
-#     # Read flooding data files
-#     for file in flooding_files:
-#         year = os.path.basename(file).split('_')[-1].split('.')[0]
-#         df = pd.read_csv(file)
-#         flooding_dataframes.append(df)
-
-#     return combined_dataframes, flooding_dataframes
-
-# # Example usage
-# directory = r'D:\s2_publishing\Remote-sensing'  # Use raw string for Windows path
-# combined_data, flooding_data = read_flooding_csv_files(directory)
-
-# combined_df_dagana = pd.concat(flooding_data, axis=1)
-# combined_df_dagana = combined_df_dagana.loc[:, ~combined_df_dagana.columns.duplicated()]
-
-# col1, col2 = st.columns([3, 1])
-# #combined_df_dagana = pd.concat(dataframes_dagana, axis =1)
-# #st.write(combined_df_dagana.shape)
-# #st.subheader("Dagana Combined Data Sample")
-# #st.dataframe(combined_df_dagana.head())
-
-# def process_rs_data(merged_df):
-#     rs_df = merged_df.filter(regex=('\d{4}-?\d{2}-?\d{2}$'))
-#     area_rs = rs_df.sum(axis=0)
-#     rs_df_combined = pd.DataFrame()
-#     rs_df_combined['Time'] = list(area_rs.index)
-#     rs_df_combined['Area(ha)'] = list(area_rs.values)
-#     rs_df_combined['Year'] = rs_df_combined['Time'].str[:4]
-#     rs_df_combined['Class'] = 'RS_' + rs_df_combined['Year']
-#     rs_df_combined['Time'] = pd.to_datetime(rs_df_combined['Time'])
-#     rs_df_combined['DOY'] = rs_df_combined['Time'].apply(lambda x: x.timetuple().tm_yday)
-#     return rs_df_combined
-
-# dag_rs_df = process_rs_data(combined_df_dagana)
-# #st.dataframe(dag_rs_df.head(20))
-
-# # Plotting the Cumulative Area for Dagana
-# years = dag_rs_df['Time'].dt.year.unique()
-# fig, ax = plt.subplots(figsize=(10, 6))
-
-# for year in years:
-#     year_df = dag_rs_df[dag_rs_df['Time'].dt.year == year]
-#     ax.plot(year_df['DOY'], year_df['Area(ha)'], marker='o', linestyle='-', label=f'RS Area {year}')
-
-# start_planting = datetime.strptime('2023-02-15', '%Y-%m-%d').timetuple().tm_yday
-# end_planting = datetime.strptime('2023-03-15', '%Y-%m-%d').timetuple().tm_yday
-# start_harvesting = datetime.strptime('2023-07-05', '%Y-%m-%d').timetuple().tm_yday
-# end_harvesting = datetime.strptime('2023-09-16', '%Y-%m-%d').timetuple().tm_yday
-
-# ax.axvline(start_planting, color='blue', linestyle='--', label='Start Planting (15 Feb)')
-# ax.axvline(end_planting, color='green', linestyle='--', label='End Planting (15 Mar)')
-# ax.axvline(start_harvesting, color='orange', linestyle='--', label='Start Harvesting (5 Jul)')
-# ax.axvline(end_harvesting, color='red', linestyle='--', label='End Harvesting (16 Sep)')
-
-# ax.set_title('2019-2024 Cumulative Flooded Areas using Dagana Plots')
-# ax.set_xlabel('Day of Year (DOY)')
-# ax.set_ylabel('Area (ha)')
-# ax.grid(True)
-# ax.legend()
-# col1.pyplot(fig)
-# col2.subheader("Dagana Data Sample")
-# col2.write(dag_rs_df.head(20))
-# #st.pyplot(fig)
-
-# # agCelerant Section
-# st.header("**2. agCelerant Plots**")
-# col3,col4 = st.columns([3, 1])
-# combined_df_ag = pd.concat(combined_data, ignore_index=True)
-
-# #st.subheader("agCelerant Combined Data Sample")
-# #st.dataframe(combined_df_ag.head())
-
-# ag_rs_df = process_rs_data(combined_df_ag)
-# #st.dataframe(ag_rs_df.head())
-
-# # Plotting the Cumulative Area for agCelerant
-# years = ag_rs_df['Time'].dt.year.unique()
-# fig, ax = plt.subplots(figsize=(10, 6))
-
-# for year in years:
-#     year_df = ag_rs_df[ag_rs_df['Time'].dt.year == year]
-#     ax.plot(year_df['DOY'], year_df['Area(ha)'], marker='o', linestyle='-', label=f'RS Area {year}')
-
-# ax.axvline(start_planting, color='blue', linestyle='--', label='Start Planting (15 Feb)')
-# ax.axvline(end_planting, color='green', linestyle='--', label='End Planting (15 Mar)')
-# ax.axvline(start_harvesting, color='orange', linestyle='--', label='Start Harvesting (5 Jul)')
-# ax.axvline(end_harvesting, color='red', linestyle='--', label='End Harvesting (16 Sep)')
-
-# ax.set_title('2019-2024 Cumulative Flooded Areas using agCelerant Plots')
-# ax.set_xlabel('Day of Year (DOY)')
-# ax.set_ylabel('Area (ha)')
-# ax.grid(True)
-# ax.legend()
-# col3.pyplot(fig)
-# #st.pyplot(fig)
-# col4.write(ag_rs_df.head(20))
 
 #___________________________________________________________credit information________________________-
 
