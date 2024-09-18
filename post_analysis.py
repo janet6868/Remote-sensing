@@ -35,7 +35,7 @@ import os
 import glob
 import pandas as pd
 # Use the full page instead of a narrow central column
-st.set_page_config(layout="wide")
+st.set_page_config(layout="centered")
 # Title of the Streamlit App
 st.title("Paddy Flooding Detection using Sentinel 2 Analysis (2019-2024)")
 
@@ -78,10 +78,12 @@ combined_data, flooding_data = read_flooding_csv_files(directory)
 
 combined_df_dagana = pd.concat(flooding_data, axis=1)
 combined_df_dagana = combined_df_dagana.loc[:, ~combined_df_dagana.columns.duplicated()]
+
+col1, col2 = st.columns([3, 1])
 #combined_df_dagana = pd.concat(dataframes_dagana, axis =1)
-st.write(combined_df_dagana.shape)
-st.subheader("Dagana Combined Data Sample")
-st.dataframe(combined_df_dagana.head())
+#st.write(combined_df_dagana.shape)
+#st.subheader("Dagana Combined Data Sample")
+#st.dataframe(combined_df_dagana.head())
 
 def process_rs_data(merged_df):
     rs_df = merged_df.filter(regex=('\d{4}-?\d{2}-?\d{2}$'))
@@ -96,7 +98,7 @@ def process_rs_data(merged_df):
     return rs_df_combined
 
 dag_rs_df = process_rs_data(combined_df_dagana)
-st.dataframe(dag_rs_df.head(20))
+#st.dataframe(dag_rs_df.head(20))
 
 # Plotting the Cumulative Area for Dagana
 years = dag_rs_df['Time'].dt.year.unique()
@@ -121,19 +123,21 @@ ax.set_xlabel('Day of Year (DOY)')
 ax.set_ylabel('Area (ha)')
 ax.grid(True)
 ax.legend()
-st.pyplot(fig)
+col1.pyplot(fig)
+col2.subheader("Dagana Data Sample")
+col2.write(dag_rs_df.head(20))
+#st.pyplot(fig)
 
 # agCelerant Section
 st.header("**2. agCelerant Plots**")
-
-
+col3,col4 = st.columns([3, 1])
 combined_df_ag = pd.concat(combined_data, ignore_index=True)
 
-st.subheader("agCelerant Combined Data Sample")
-st.dataframe(combined_df_ag.head())
+#st.subheader("agCelerant Combined Data Sample")
+#st.dataframe(combined_df_ag.head())
 
 ag_rs_df = process_rs_data(combined_df_ag)
-st.dataframe(ag_rs_df.head())
+#st.dataframe(ag_rs_df.head())
 
 # Plotting the Cumulative Area for agCelerant
 years = ag_rs_df['Time'].dt.year.unique()
@@ -153,7 +157,9 @@ ax.set_xlabel('Day of Year (DOY)')
 ax.set_ylabel('Area (ha)')
 ax.grid(True)
 ax.legend()
-st.pyplot(fig)
+col3.pyplot(fig)
+#st.pyplot(fig)
+col4.write(ag_rs_df.head(20))
 
 #___________________________________________________________credit information________________________-
 
@@ -320,6 +326,9 @@ for i, year in enumerate(years):
 st.markdown('Before and After Credit Events for each year')
 plt.tight_layout()
 st.pyplot(fig_box)
+container = st.container()
+#ontainer.write("how significant increases in flooded areas after credit execution, which could point to a stronger relationship between credit and increased flooding activity in these years.")
+
 st.markdown("""
 **Box Plots for Flooded Area Before and After Credit Execution**:
 - **Visual Comparison**:
