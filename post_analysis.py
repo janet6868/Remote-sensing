@@ -200,9 +200,20 @@ combined_df_credit = read_github_csv(file_url)#pd.read_csv(file, index_col=0,na_
 st.markdown("**Sample of the Credit Data:**")
 st.dataframe(combined_df_credit.head(20))
 
+# Assuming 'unique_col' (e.g., 'farmer_id') is the column that identifies farmers
+unique_col = 'culture_id'  # Replace this with the actual farmer ID or unique column name
+
+# Step 1: Group by unique_col (farmers) and check if they have at least one complete row for credit details
+has_credit = combined_df_credit.groupby(unique_col).apply(
+    lambda group: group.dropna(subset=['credit_req_date', 'credit_auth_date', 'credit_exec_date']).shape[0] > 0
+).reset_index(name='has_credit')
+
+# Step 2: Separate farmers into two categories based on whether they have complete credit details or not
+has_credit_details = has_credit[has_credit['has_credit'] == True][unique_col]
+no_credit_details = has_credit[has_credit['has_credit'] == False][unique_col]
 # Separate rows with and without credit details
-has_credit_details = combined_df_credit.dropna(subset=['credit_req_date', 'credit_auth_date', 'credit_exec_date'])
-no_credit_details = combined_df_credit[combined_df_credit[['credit_req_date', 'credit_auth_date', 'credit_exec_date']].isna().all(axis=1)]
+#has_credit_details = combined_df_credit.dropna(subset=['credit_req_date', 'credit_auth_date', 'credit_exec_date'])
+#no_credit_details = combined_df_credit[combined_df_credit[['credit_req_date', 'credit_auth_date', 'credit_exec_date']].isna().all(axis=1)]
 
 # Function to process the remote sensing data for cumulative area
 def process_rs_data(merged_df):
