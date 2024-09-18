@@ -53,7 +53,7 @@ END_HARVESTING = 259    # 16 Sep
 def read_github_csv(url):
     """Read CSV from GitHub URL."""
     raw_url = url.replace("github.com", "raw.githubusercontent.com").replace("/blob/", "/")
-    return pd.read_csv(raw_url,index_col=0)
+    return pd.read_csv(raw_url)
 
 def process_rs_data(df):
     rs_df = df.filter(regex=('\d{4}-?\d{2}-?\d{2}$'))
