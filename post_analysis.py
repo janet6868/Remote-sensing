@@ -588,19 +588,42 @@ st.plotly_chart(fig_timeline)
 # Load GeoDataFrame (GIE credit and RS data with geometries)
 st.dataframe(filtered_data)
 
-
+#________________________________________________________PPPP___________________________________
 # Prediction
 st.header('**Estimation of the Flooded area using growth Models**')
 #st.subheader('**Logistics groth model**')
-import streamlit as st
-import pandas as pd
-import numpy as np
-# from growth_curve_tools_modified import CurveLibrary
-# from updated_compare_model_with_logistic_final import compare_model
-
 # Title and description
 st.title("Growth Curve: Logistic")
-st.write("This app predicts growth curves using Logistic and Gompertz models for flooding data.")
+
+# Equation
+st.markdown("### Equation:")
+st.latex(r"P(t) = \frac{K}{1 + \left( \frac{K - P_0}{P_0} \right) e^{-rt}}")
+
+# Explanation of the terms
+st.markdown("""
+Where:
+- **P(t)**: Population or size at time **t**,
+- **K**: Carrying capacity (the maximum size the population can reach),
+- **P₀**: Initial population or size,
+- **r**: Growth rate,
+- **t**: Time.
+""")
+
+# Shape explanation
+st.markdown("""
+### Shape:
+The logistic curve is S-shaped (sigmoidal). It starts with an exponential growth phase, 
+slows down as the population approaches the carrying capacity, and eventually levels off at the carrying capacity.
+""")
+
+# Growth dynamics
+st.markdown("""
+### Growth Dynamics:
+- **Initial Phase**: Rapid growth (exponential).
+- **Middle Phase**: Growth rate decreases as resources become limited.
+- **Final Phase**: Growth slows down and asymptotically approaches the carrying capacity, **K**.
+""")
+
 #plot the prediction and the data
 def process_rs_data(dff):
     rs_df = dff.filter(regex=('\d{4}-?\d{2}-?\d{2}$'))  # Date columns
