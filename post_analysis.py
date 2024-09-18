@@ -208,13 +208,21 @@ has_credit = combined_df_credit.groupby(unique_col).apply(
     lambda group: group.dropna(subset=['credit_req_date', 'credit_auth_date', 'credit_exec_date']).shape[0] > 0
 ).reset_index(name='has_credit')
 
+# # Step 2: Separate farmers into two categories based on whether they have complete credit details or not
+# has_credit_details = has_credit[has_credit['has_credit'] == True][unique_col]
+# no_credit_details = has_credit[has_credit['has_credit'] == False][unique_col]
+
 # Step 2: Separate farmers into two categories based on whether they have complete credit details or not
-has_credit_details = has_credit[has_credit['has_credit'] == True][unique_col]
-no_credit_details = has_credit[has_credit['has_credit'] == False][unique_col]
+farmers_with_credit = has_credit[has_credit['has_credit'] == True][unique_col]
+farmers_without_credit = has_credit[has_credit['has_credit'] == False][unique_col]
+
+# Step 3: Filter the original dataframe for rows belonging to these two groups
+has_credit_details = combined_df_credit[combined_df_credit[unique_col].isin(farmers_with_credit)]
+no_credit_details = combined_df_credit[combined_df_credit[unique_col].isin(farmers_without_credit)]
 # Separate rows with and without credit details
 #has_credit_details = combined_df_credit.dropna(subset=['credit_req_date', 'credit_auth_date', 'credit_exec_date'])
 #no_credit_details = combined_df_credit[combined_df_credit[['credit_req_date', 'credit_auth_date', 'credit_exec_date']].isna().all(axis=1)]
-
+st.write(has_credit_details)
 # Function to process the remote sensing data for cumulative area
 def process_rs_data(merged_df):
     rs_df = merged_df.filter(regex=('\d{4}-?\d{2}-?\d{2}$'))  # Date columns
