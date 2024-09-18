@@ -141,8 +141,9 @@ st.markdown("General Information: The dataset contains 4,608 rows and 258 column
 # if uploaded_credit_files:
     #file = r"G:\My Drive\Remote_sensing\SRV_flooding_detection_models\Dagana\agcelerant_working_files\dry_season_agcelerant\data\dhs\merged_cr_rs_data.csv"
     #for file in uploaded_credit_files:
-file = r"G:\My Drive\Remote_sensing\SRV_flooding_detection_models\Dagana\agcelerant_working_files\dry_season_agcelerant\data\dhs\merged_cr_rs_data.csv"
-combined_df_credit = pd.read_csv(file, index_col=0,na_values=np.nan)
+file_url ='https://github.com/ICRISAT-Senegal/Remote-sensing/blob/main/merged_cr_rs_data.csv'
+#read_github_csv(url)
+combined_df_credit = read_github_csv(file_url)#pd.read_csv(file, index_col=0,na_values=np.nan)
 
 st.markdown("**Sample of the Credit Data:**")
 st.dataframe(combined_df_credit.head(), height=200)
@@ -567,8 +568,9 @@ def process_rs_data(dff):
     return rs_df_combined
 
     # Process both datasets
-dag_rs_df = process_rs_data(pd.read_csv(r'D:\s2_publishing\Remote-sensing\flooding_data_2024.csv'))
-data_log = pd.read_csv(r'D:\s2_publishing\Remote-sensing\prediction_growth_ts_first_attempt.csv')
+dag_rs_df = process_rs_data(read_github_csv('https://github.com/ICRISAT-Senegal/Remote-sensing/blob/main/flooding_data_2024.csv'))
+file_log ='https://github.com/ICRISAT-Senegal/Remote-sensing/blob/main/prediction_growth_ts_first_attempt.csv'
+data_log = read_github_csv(file_log)
 data_log['Time'] = pd.to_datetime(data_log['time_t'])
 data_log['Area(ha)'] = data_log['area_t']
 #data_log['Class'] = 'log_2024'
