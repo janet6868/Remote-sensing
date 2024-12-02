@@ -1,5 +1,3 @@
-
-
 """
 """
 #%%
@@ -34,7 +32,7 @@ from IPython.display import display
 from branca.colormap import LinearColormap
 import altair as alt
 import geemap.foliumap as geema
-from geemap.basemaps import GoogleMapsTileProvider
+#from geemap.basemaps import GoogleMapsTileProvider
 
 
 # Use the full page instead of a narrow central column
@@ -332,6 +330,8 @@ if st.button("Run Detection"):
     run_detection_flooding(aoi=dagana, grid=grid, start_date=start_date, end_date=end_date, year=year)
 # Process flooding data and create DataFrame for analysis
 #run_detection_flooding(aoi= dagana, grid=grid, start_date=start_date, end_date=end_date, year=year)
+
+#%%
 #__________________________________________________POST ANALYSIS______________________________________________________________________________________
 # Title of the Streamlit App
 st.title("Paddy Flooding Detection using Sentinel 2 Analysis (2019-2024)")
