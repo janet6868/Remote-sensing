@@ -1,4 +1,12 @@
 #install the packages
+geemap
+spicy
+plotly
+contextily
+tqdm
+branca
+altair
+folium
 rasterio
 geopandas
 shapely
