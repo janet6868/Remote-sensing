@@ -39,12 +39,11 @@ import geemap.foliumap as geema
 st.set_page_config(layout="wide")
 # Title of the Streamlit App
 st.title("Paddy Flooding Detection using Sentinel 2 Analysis (2019-2024)")
-#__________________________________________________FLOODING DETECTION______________________________________________________________________________________
-#@title Running workflow 2022
-
+#____________________________FLOODING DETECTION______________________________________________________________________________________
 # Authenticate and initialize the Earth Engine
 ee.Authenticate()
 ee.Initialize(project='ee-janet')
+
 # Define the grid and region of interest
 grid = ee.FeatureCollection("projects/ee-janet/assets/senegal/52_grid_dagana")
 init_dagana = ee.FeatureCollection("projects/ee-janet/assets/senegal/dagana")
@@ -62,7 +61,7 @@ exclusion_areas = dagana_riverbanks.geometry() \
     .union(dagana_water.geometry())
 
 # Subtract exclusion areas from the initial Dagana region
-dagana = init_dagana.geometry().difference(exclusion_areas)#.difference(exclusion_area.geometry())
+dagana = init_dagana.geometry().difference(exclusion_areas)
 
 # Get the bounding box and center of the ROI for the Folium map
 roi_bounds = dagana.bounds().getInfo()['coordinates'][0]
@@ -98,28 +97,6 @@ def run_detection_flooding(aoi, grid, start_date, end_date, year):
         ).rename('AWEI')
         return image.addBands(awei)
 
-    # Function to add s2cloudless cloud probability to Sentinel-2 imagery
-    def add_cloud_probability(image):
-        # Load the s2cloudless cloud probability image for the same time as the Sentinel-2 image
-        cloud_probability = ee.ImageCollection('COPERNICUS/S2_CLOUD_PROBABILITY') \
-            .filterBounds(image.geometry()) \
-            .filterDate(image.date(), image.date().advance(1, 'day')) \
-            .first()  # Get the first image in the filtered collection
-
-        # Add the cloud probability as a band to the original image
-        return image.addBands(cloud_probability.rename('cloud_prob'))
-
-    # Function to mask clouds using s2cloudless cloud probability
-    def mask_clouds_s2cloudless(image, cloud_prob_threshold=30):
-        # Add cloud probability to the image
-        image = add_cloud_probability(image)
-
-        # Create a cloud mask where cloud probability is below the threshold
-        cloud_mask = image.select('cloud_prob').lt(cloud_prob_threshold)
-
-        # Apply the cloud mask to the image
-        return image.updateMask(cloud_mask)
-
     # Function to mask clouds in Sentinel-2 imagery
     def mask_clouds_s2(image):
         qa = image.select('QA60')
@@ -128,16 +105,16 @@ def run_detection_flooding(aoi, grid, start_date, end_date, year):
         mask = qa.bitwiseAnd(cloudBitMask).eq(0).And(qa.bitwiseAnd(cirrusBitMask).eq(0))
         return image.updateMask(mask)
 
-    # Function to process dates every 5 days
+    # # Function to process dates every 5 days
     def enhanced_date_processing(start_date, end_date, interval_days=5):
-        start_date = datetime.strptime(start_date, "%Y-%m-%d")
-        end_date = datetime.strptime(end_date, "%Y-%m-%d")
+        start_date = start_date#datetime.strptime(start_date, "%Y-%m-%d")
+        end_date = end_date#datetime.strptime(end_date, "%Y-%m-%d")
         date_list = []
         while start_date <= end_date:
-            date_list.append(start_date.strftime("%Y-%m-%d"))
+            date_list.append(start_date)#.strftime("%Y-%m-%d"))
             start_date += timedelta(days=interval_days)
         return date_list
-   
+    
     # Function to calculate flood area for each grid cell
     def calculate_grid_flood_area(flood_mask, grid,date):
         def calculate_area(feature):
@@ -154,7 +131,7 @@ def run_detection_flooding(aoi, grid, start_date, end_date, year):
 
     # Function to get day of year
     def get_doy(date_string):
-        date = datetime.strptime(date_string, '%Y-%m-%d')
+        date = date_string#datetime.strptime(date_string, '%Y-%m-%d')
         return date.timetuple().tm_yday
 
     def extract_flood_data(features, date):
@@ -191,17 +168,16 @@ def run_detection_flooding(aoi, grid, start_date, end_date, year):
     water = dataset.select('water').eq(2)
     masked = water.updateMask(water)
     date_ranges = enhanced_date_processing(start_date, end_date)
-    #   .map(mask_clouds_s2) \ .map(mask_clouds_s2cloudless)\
     def process_each_date(aoi, date):
-        start_period = datetime.strptime(date, "%Y-%m-%d") - timedelta(days=5)
-        end_period = datetime.strptime(date, "%Y-%m-%d") + timedelta(days=5)
+        start_period = date - timedelta(days=5) #datetime.strptime(date, "%Y-%m-%d") 
+        end_period = date+ timedelta(days=5) #datetime.strptime(date, "%Y-%m-%d") 
         s2_sr_col = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED') \
                     .filterBounds(aoi) \
                     .filterDate(start_period, end_period) \
                     .filter(ee.Filter.lte('CLOUDY_PIXEL_PERCENTAGE', 18)) \
                     .map(mask_clouds_s2) \
                     .map(calculate_mndwi_s2)\
-                   # .map(calculate_awei_s2)
+                   
         # Check if the image collection is empty
         if s2_sr_col.size().getInfo() == 0:
 
@@ -211,7 +187,7 @@ def run_detection_flooding(aoi, grid, start_date, end_date, year):
         mosaic = s2_sr_col.mosaic().clip(dagana)
         mosaic_ = mosaic.updateMask(water.Not())
         #Threshold each index
-        mndwi_mask = mosaic_.select('MNDWI').gt(0)#updateMask(water_areas.Not()
+        mndwi_mask = mosaic_.select('MNDWI').gt(0)
         return mndwi_mask
 
 
@@ -250,7 +226,7 @@ def run_detection_flooding(aoi, grid, start_date, end_date, year):
                 #mask1 = base_date_mask.And(cumulative_flood_mask.eq(1))
                 cumulative_flood_mask = cumulative_flood_mask.where(base_date_mask.And(cumulative_flood_mask.eq(0)), doy)
                 # Calculate the flood area for the grid at each 5-day interval
-                grid_with_flood_area = calculate_grid_flood_area(cumulative_flood_mask.gt(0), grid, date) #.updateMask(cumulative_flood_mask.gt(0))
+                grid_with_flood_area = calculate_grid_flood_area(cumulative_flood_mask.gt(0), grid, date) 
                 flood_data.extend(extract_flood_data(grid_with_flood_area.getInfo()['features'], date))
                 # Get the month of the current date
                 date_obj = datetime.strptime(date, "%Y-%m-%d")
@@ -260,8 +236,6 @@ def run_detection_flooding(aoi, grid, start_date, end_date, year):
                 is_end_of_month = (i == len(date_ranges) - 1) or (datetime.strptime(date_ranges[i + 1], "%Y-%m-%d").month != current_month)
                 if is_end_of_month:
                     # Add layer to map
-                    # m.add_layer(cumulative_flood_mask.updateMask(cumulative_flood_mask).gt(0),
-                    #             flood_vis_params, f'Flooding Progression up to {date}')
                     m.add_layer(cumulative_flood_mask.updateMask(cumulative_flood_mask.gt(0)),
                                   flood_vis_params, f'Flooding Progression up to {date}')
 
@@ -318,18 +292,15 @@ def run_detection_flooding(aoi, grid, start_date, end_date, year):
 
 selected_year = st.slider("Select Year", min_value=2019, max_value=2024, value=2024)
 st.header("Select Analysis Period")
+# start_date = st.date_input("Start Date", value="2024-01-22")
+# end_date = st.date_input("End Date", value="2024-02-28")
 start_date = st.date_input("Start Date", value=pd.to_datetime("2024-01-22"))
 end_date = st.date_input("End Date", value=pd.to_datetime("2024-02-28"))
 year = st.text_input("Year", value="2024")
-#year = '2024'
-# Define the date range for processing
-# start_date = '2024-01-17'
-# end_date = '2024-02-28'
 # Button to Run the Detection
 if st.button("Run Detection"):
     run_detection_flooding(aoi=dagana, grid=grid, start_date=start_date, end_date=end_date, year=year)
-# Process flooding data and create DataFrame for analysis
-#run_detection_flooding(aoi= dagana, grid=grid, start_date=start_date, end_date=end_date, year=year)
+
 
 #%%
 #__________________________________________________POST ANALYSIS______________________________________________________________________________________
