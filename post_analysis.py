@@ -308,20 +308,30 @@ def run_detection_flooding(aoi, grid, start_date, end_date, year):
     output_file_name = f'floodingData_{year}.csv'
     df_final.to_csv(output_file_name, index=False)
     # Display the map
-    display(m)
+    #display(m)
+    st.info(f"Running flooding detection for {year} from {start_date} to {end_date}.")
     # Add additional layers to the map
     m.addLayer(dagana_reservoir, {'color': 'blue'}, 'Dagana Reservoir')
     m.addLayer(dagana_water, {'color': 'cyan'}, 'Dagana Water')
     m.addLayer(dagana_riverbanks, {'color': 'green'}, 'Dagana Riverbanks')
     m.addLayer(dagana_wetland, {'color': 'brown'}, 'Dagana Wetland')
+    st.write("Map with flooding detection layers:")
+    m.to_streamlit()
 
-
-year = '2024'
+selected_year = st.slider("Select Year", min_value=2019, max_value=2024, value=2024)
+st.header("Select Analysis Period")
+start_date = st.date_input("Start Date", value=pd.to_datetime("2024-01-22"))
+end_date = st.date_input("End Date", value=pd.to_datetime("2024-02-28"))
+year = st.text_input("Year", value="2024")
+#year = '2024'
 # Define the date range for processing
-start_date = '2024-01-17'
-end_date = '2024-02-28'
+# start_date = '2024-01-17'
+# end_date = '2024-02-28'
+# Button to Run the Detection
+if st.button("Run Detection"):
+    run_detection_flooding(aoi=dagana, grid=grid, start_date=start_date, end_date=end_date, year=year)
 # Process flooding data and create DataFrame for analysis
-run_detection_flooding(aoi= dagana, grid=grid, start_date=start_date, end_date=end_date, year=year)
+#run_detection_flooding(aoi= dagana, grid=grid, start_date=start_date, end_date=end_date, year=year)
 #__________________________________________________POST ANALYSIS______________________________________________________________________________________
 # Title of the Streamlit App
 st.title("Paddy Flooding Detection using Sentinel 2 Analysis (2019-2024)")
