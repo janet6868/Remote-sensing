@@ -10,33 +10,319 @@ from shapely.geometry import box
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from datetime import datetime
+from datetime import datetime, date, timedelta
 import seaborn as sns
 from io import StringIO
-
 import streamlit as st
-import pandas as pd
-import matplotlib.pyplot as plt
-from datetime import datetime
 import plotly.express as px
-import geopandas as gpd
-import matplotlib.pyplot as plt
-import pandas as pd
 import contextily as ctx
 from matplotlib.colors import LinearSegmentedColormap
 import streamlit as st
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
 from scipy import stats
-import streamlit as st
 import statsmodels.api as sm
 from statsmodels.tsa.seasonal import seasonal_decompose
 import os
 import glob
-import pandas as pd
+import ee
+import geemap
+from tqdm import tqdm  # Import tqdm for the progress bar
+from rasterio.plot import show
+import geemap.colormaps as cm
+import folium
+from matplotlib.dates import DateFormatter, DayLocator
+from IPython.display import display
+from branca.colormap import LinearColormap
+import altair as alt
+import geemap.foliumap as geema
+from geemap.basemaps import GoogleMapsTileProvider
+
+
 # Use the full page instead of a narrow central column
 st.set_page_config(layout="wide")
+# Title of the Streamlit App
+st.title("Paddy Flooding Detection using Sentinel 2 Analysis (2019-2024)")
+#__________________________________________________FLOODING DETECTION______________________________________________________________________________________
+#@title Running workflow 2022
+
+# Authenticate and initialize the Earth Engine
+ee.Authenticate()
+ee.Initialize(project='ee-janet')
+# Define the grid and region of interest
+grid = ee.FeatureCollection("projects/ee-janet/assets/senegal/52_grid_dagana")
+init_dagana = ee.FeatureCollection("projects/ee-janet/assets/senegal/dagana")
+
+# Additional layers
+dagana_reservoir = ee.FeatureCollection("projects/ee-janet/assets/senegal/dagana_reservoir")
+dagana_water = ee.FeatureCollection("projects/ee-janet/assets/senegal/dagana_water")
+dagana_riverbanks = ee.FeatureCollection("projects/ee-janet/assets/senegal/dagana_riverbanks")
+dagana_wetland = ee.FeatureCollection("projects/ee-janet/assets/senegal/dagana_wetland")
+exclusion_area = ee.FeatureCollection("projects/ee-janet/assets/senegal/dagana_exclusion_region")
+
+exclusion_areas = dagana_riverbanks.geometry() \
+    .union(dagana_wetland.geometry()) \
+    .union(dagana_reservoir.geometry()) \
+    .union(dagana_water.geometry())
+
+# Subtract exclusion areas from the initial Dagana region
+dagana = init_dagana.geometry().difference(exclusion_areas)#.difference(exclusion_area.geometry())
+
+# Get the bounding box and center of the ROI for the Folium map
+roi_bounds = dagana.bounds().getInfo()['coordinates'][0]
+center_lat = (roi_bounds[0][1] + roi_bounds[2][1]) / 2
+center_lon = (roi_bounds[0][0] + roi_bounds[2][0]) / 2
+
+# Create a map
+m = geemap.Map(center=[center_lat, center_lon], zoom=10)
+# Add basemap
+m.add_basemap('Esri.WorldImagery')
+
+def run_detection_flooding(aoi, grid, start_date, end_date, year):
+    # Function to calculate MNDWI for Sentinel-2
+    def calculate_mndwi_s2(image):
+        mndwi = image.normalizedDifference(['B3', 'B11']).rename('MNDWI')
+        return image.addBands(mndwi)
+
+    # Function to calculate NDWI for Sentinel-2
+    def calculate_ndwi_s2(image):
+        ndwi = image.normalizedDifference(['B3', 'B8']).rename('NDWI')
+        return image.addBands(ndwi)
+
+    # Function to calculate AWEI for Sentinel-2
+    def calculate_awei_s2(image):
+        awei = image.expression(
+            '4 * (GREEN - SWIR1) - (0.25 * NIR + 2.75 * SWIR2)',
+            {
+                'GREEN': image.select('B3'),
+                'SWIR1': image.select('B11'),
+                'NIR': image.select('B8'),
+                'SWIR2': image.select('B12')
+            }
+        ).rename('AWEI')
+        return image.addBands(awei)
+
+    # Function to add s2cloudless cloud probability to Sentinel-2 imagery
+    def add_cloud_probability(image):
+        # Load the s2cloudless cloud probability image for the same time as the Sentinel-2 image
+        cloud_probability = ee.ImageCollection('COPERNICUS/S2_CLOUD_PROBABILITY') \
+            .filterBounds(image.geometry()) \
+            .filterDate(image.date(), image.date().advance(1, 'day')) \
+            .first()  # Get the first image in the filtered collection
+
+        # Add the cloud probability as a band to the original image
+        return image.addBands(cloud_probability.rename('cloud_prob'))
+
+    # Function to mask clouds using s2cloudless cloud probability
+    def mask_clouds_s2cloudless(image, cloud_prob_threshold=30):
+        # Add cloud probability to the image
+        image = add_cloud_probability(image)
+
+        # Create a cloud mask where cloud probability is below the threshold
+        cloud_mask = image.select('cloud_prob').lt(cloud_prob_threshold)
+
+        # Apply the cloud mask to the image
+        return image.updateMask(cloud_mask)
+
+    # Function to mask clouds in Sentinel-2 imagery
+    def mask_clouds_s2(image):
+        qa = image.select('QA60')
+        cloudBitMask = 1 << 10
+        cirrusBitMask = 1 << 11
+        mask = qa.bitwiseAnd(cloudBitMask).eq(0).And(qa.bitwiseAnd(cirrusBitMask).eq(0))
+        return image.updateMask(mask)
+
+    # Function to process dates every 5 days
+    def enhanced_date_processing(start_date, end_date, interval_days=5):
+        start_date = datetime.strptime(start_date, "%Y-%m-%d")
+        end_date = datetime.strptime(end_date, "%Y-%m-%d")
+        date_list = []
+        while start_date <= end_date:
+            date_list.append(start_date.strftime("%Y-%m-%d"))
+            start_date += timedelta(days=interval_days)
+        return date_list
+   
+    # Function to calculate flood area for each grid cell
+    def calculate_grid_flood_area(flood_mask, grid,date):
+        def calculate_area(feature):
+            area = flood_mask.multiply(ee.Image.pixelArea()).reduceRegion(
+                reducer=ee.Reducer.sum(),
+                geometry=feature.geometry(),
+                scale=10,
+                maxPixels=1e13
+            )
+            area_ha = area.getNumber('constant').divide(10000).format('%.2f')
+            #return feature.set('flood_area_ha', area_ha)
+            return feature.set({'flood_area_ha': area_ha, 'date': date})
+        return grid.map(calculate_area)
+
+    # Function to get day of year
+    def get_doy(date_string):
+        date = datetime.strptime(date_string, '%Y-%m-%d')
+        return date.timetuple().tm_yday
+
+    def extract_flood_data(features, date):
+        flood_data = []
+        for feature in features:
+            grid_id = feature['properties']['ID']
+            flood_area_ha = feature['properties'].get('flood_area_ha', 0)
+            flood_data.append({
+                'date': date,
+                'grid_id': grid_id,
+                'flood_area_ha': flood_area_ha,
+                **{k: v for k, v in feature['properties'].items() if k != 'flood_area_ha'}
+            })
+        return flood_data
+
+    def create_flood_dataframe(flood_data):
+        df = pd.DataFrame(flood_data)
+        df['date'] = pd.to_datetime(df['date'])
+        df.set_index(['date', 'grid_id'], inplace=True)
+        return df
+
+    def process_flood_results(df, grid_properties):
+        df['flood_area_ha'] = pd.to_numeric(df['flood_area_ha'], errors='coerce')
+        df['flood_area_ha'].fillna(0, inplace=True)
+        if isinstance(grid_properties, pd.DataFrame):
+            final_df = pd.merge(df.reset_index(), grid_properties, on='grid_id', how='left')
+        else:
+            final_df = df
+        return final_df
+
+
+    dataset = ee.Image('JRC/GSW1_4/MonthlyHistory/2021_01').clip(dagana)
+    # Select water and create a binary mask
+    water = dataset.select('water').eq(2)
+    masked = water.updateMask(water)
+    date_ranges = enhanced_date_processing(start_date, end_date)
+    #   .map(mask_clouds_s2) \ .map(mask_clouds_s2cloudless)\
+    def process_each_date(aoi, date):
+        start_period = datetime.strptime(date, "%Y-%m-%d") - timedelta(days=5)
+        end_period = datetime.strptime(date, "%Y-%m-%d") + timedelta(days=5)
+        s2_sr_col = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED') \
+                    .filterBounds(aoi) \
+                    .filterDate(start_period, end_period) \
+                    .filter(ee.Filter.lte('CLOUDY_PIXEL_PERCENTAGE', 18)) \
+                    .map(mask_clouds_s2) \
+                    .map(calculate_mndwi_s2)\
+                   # .map(calculate_awei_s2)
+        # Check if the image collection is empty
+        if s2_sr_col.size().getInfo() == 0:
+
+            print(f"No images found for date {date} within the specified cloud coverage.")
+            return None
+        # Mosaic the images
+        mosaic = s2_sr_col.mosaic().clip(dagana)
+        mosaic_ = mosaic.updateMask(water.Not())
+        #Threshold each index
+        mndwi_mask = mosaic_.select('MNDWI').gt(0)#updateMask(water_areas.Not()
+        return mndwi_mask
+
+
+    # Add this new function for exporting images
+    def export_image(image, description, region, folder):
+        task = ee.batch.Export.image.toDrive(
+            image=image,
+            description=description,
+            folder=folder,
+            scale=10,
+            region=region,
+            maxPixels=1e13
+        )
+        task.start()
+        print(f"Started export task for {description}")
+    first_image = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED').filterBounds(dagana).first()
+    projection = first_image.select('B2').projection()
+    # Function to process and visualize flooding, mapping only at the end of each month
+    def process_and_visualize_flooding(aoi, date_ranges, grid):
+        flood_data = []
+        cumulative_flood_mask = ee.Image(0).reproject(crs=projection, scale=10).clip(aoi)
+        flood_vis_params = {
+            'min': min([get_doy(d) for d in date_ranges]),
+            'max': max([get_doy(d) for d in date_ranges]),
+            'palette': ['blue', 'cyan', 'green', 'yellow', 'red']
+            }
+
+        current_month = None
+
+        # Initialize the progress bar
+        for i, date in tqdm(enumerate(date_ranges), total=len(date_ranges), desc="Processing Dates"):
+            current_mndwi = process_each_date(aoi, date)
+            if current_mndwi is not None:
+                doy = get_doy(date)
+                base_date_mask = current_mndwi
+                #mask1 = base_date_mask.And(cumulative_flood_mask.eq(1))
+                cumulative_flood_mask = cumulative_flood_mask.where(base_date_mask.And(cumulative_flood_mask.eq(0)), doy)
+                # Calculate the flood area for the grid at each 5-day interval
+                grid_with_flood_area = calculate_grid_flood_area(cumulative_flood_mask.gt(0), grid, date) #.updateMask(cumulative_flood_mask.gt(0))
+                flood_data.extend(extract_flood_data(grid_with_flood_area.getInfo()['features'], date))
+                # Get the month of the current date
+                date_obj = datetime.strptime(date, "%Y-%m-%d")
+                if current_month is None:
+                    current_month = date_obj.month
+                # Check if the next date is in a new month or if it's the last date
+                is_end_of_month = (i == len(date_ranges) - 1) or (datetime.strptime(date_ranges[i + 1], "%Y-%m-%d").month != current_month)
+                if is_end_of_month:
+                    # Add layer to map
+                    # m.add_layer(cumulative_flood_mask.updateMask(cumulative_flood_mask).gt(0),
+                    #             flood_vis_params, f'Flooding Progression up to {date}')
+                    m.add_layer(cumulative_flood_mask.updateMask(cumulative_flood_mask.gt(0)),
+                                  flood_vis_params, f'Flooding Progression up to {date}')
+
+                    export_folder = "fis_flooding_maps"
+                    # Export the cumulative flood mask
+                    export_image(
+                        cumulative_flood_mask.updateMask(cumulative_flood_mask.gt(0)),
+                        f'Flooding_map_{date}',
+                        aoi,
+                        export_folder
+                   )
+                    # Reset current_month for the next month
+                    if i != len(date_ranges) - 1:
+                        current_month = datetime.strptime(date_ranges[i + 1], "%Y-%m-%d").month
+            else:
+                print(f"Skipping date {date} due to no valid MNDWI")
+        m.add_colorbar(flood_vis_params, label="Day of the year",
+                       orientation="horizontal",
+                       layer_name="Flooding detection")
+        return flood_data
+    
+    flood_data = process_and_visualize_flooding(dagana, date_ranges, grid)
+    df = create_flood_dataframe(flood_data)
+    df = df.reset_index()
+    df['date'] = pd.to_datetime(df['date']).dt.strftime('%Y-%m-%d')
+
+    # Pivot the table
+    df_pivoted = df.pivot(index='grid_id', columns='date', values='flood_area_ha')
+    columns_date = df_pivoted.columns
+    maxValueIndex1 = df_pivoted[columns_date].idxmax(axis=1)
+    df_pivoted['flooding_date'] = maxValueIndex1
+
+    # Assuming the columns_to_keep exist in your data
+    columns_to_keep = ['ID', 'LatNP', 'Latitude', 'LonNP', 'Longitude', 'nasapid']
+    df_other = df.drop_duplicates(subset=['grid_id'])[columns_to_keep + ['grid_id']].set_index('grid_id')
+    df_pivoted = df_pivoted.rename_axis(index='grid_id')
+    df_final = df_other.join(df_pivoted)
+    df_final = df_final.reset_index()
+    date_columns = [col for col in df_final.columns if col not in columns_to_keep + ['grid_id', 'index']]
+    df_final = df_final[columns_to_keep + ['grid_id'] + sorted(date_columns)]
+
+    output_file_name = f'floodingData_{year}.csv'
+    df_final.to_csv(output_file_name, index=False)
+    # Display the map
+    display(m)
+    # Add additional layers to the map
+    m.addLayer(dagana_reservoir, {'color': 'blue'}, 'Dagana Reservoir')
+    m.addLayer(dagana_water, {'color': 'cyan'}, 'Dagana Water')
+    m.addLayer(dagana_riverbanks, {'color': 'green'}, 'Dagana Riverbanks')
+    m.addLayer(dagana_wetland, {'color': 'brown'}, 'Dagana Wetland')
+
+
+year = '2024'
+# Define the date range for processing
+start_date = '2024-01-17'
+end_date = '2024-02-28'
+# Process flooding data and create DataFrame for analysis
+run_detection_flooding(aoi= dagana, grid=grid, start_date=start_date, end_date=end_date, year=year)
+#__________________________________________________POST ANALYSIS______________________________________________________________________________________
 # Title of the Streamlit App
 st.title("Paddy Flooding Detection using Sentinel 2 Analysis (2019-2024)")
 import streamlit as st
@@ -199,260 +485,6 @@ combined_df_credit = read_github_csv(file_url)#pd.read_csv(file, index_col=0,na_
 
 st.markdown("**Sample of the Credit Data:**")
 st.dataframe(combined_df_credit.head(20))
-
-# # Assuming 'unique_col' (e.g., 'farmer_id') is the column that identifies farmers
-# unique_col = 'culture_id'  # Replace this with the actual farmer ID or unique column name
-
-# # Step 1: Group by unique_col (farmers) and check if they have at least one complete row for credit details
-# has_credit = combined_df_credit.groupby(unique_col).apply(
-#     lambda group: group.dropna(subset=['credit_req_date', 'credit_auth_date', 'credit_exec_date']).shape[0] > 0
-# ).reset_index(name='has_credit')
-
-# # # Step 2: Separate farmers into two categories based on whether they have complete credit details or not
-# # has_credit_details = has_credit[has_credit['has_credit'] == True][unique_col]
-# # no_credit_details = has_credit[has_credit['has_credit'] == False][unique_col]
-
-# # Step 2: Separate farmers into two categories based on whether they have complete credit details or not
-# farmers_with_credit = has_credit[has_credit['has_credit'] == True][unique_col]
-# farmers_without_credit = has_credit[has_credit['has_credit'] == False][unique_col]
-
-# # Step 3: Filter the original dataframe for rows belonging to these two groups
-# has_credit_details = combined_df_credit[combined_df_credit[unique_col].isin(farmers_with_credit)]
-# st.write(has_credit_details.culture_id.value_counts())
-# no_credit_details = combined_df_credit[combined_df_credit[unique_col].isin(farmers_without_credit)]
-# st.write(no_credit_details.culture_id.value_counts())
-# # Separate rows with and without credit details
-# #has_credit_details = combined_df_credit.dropna(subset=['credit_req_date', 'credit_auth_date', 'credit_exec_date'])
-# #no_credit_details = combined_df_credit[combined_df_credit[['credit_req_date', 'credit_auth_date', 'credit_exec_date']].isna().all(axis=1)]
-# st.write(has_credit_details)
-# st.write(no_credit_details)
-# # Function to process the remote sensing data for cumulative area
-# def process_rs_data(merged_df):
-#     rs_df = merged_df.filter(regex=('\d{4}-?\d{2}-?\d{2}$'))  # Date columns
-#     area_rs = rs_df.sum(axis=0)  # Summing values row-wise
-#     rs_df_combined = pd.DataFrame()
-#     rs_df_combined['Time'] = list(area_rs.index)
-#     rs_df_combined['Area(ha)'] = list(area_rs.values)
-#     rs_df_combined['Year'] = rs_df_combined['Time'].str[:4]
-#     rs_df_combined['Class'] = 'RS_' + rs_df_combined['Year']
-#     rs_df_combined['Time'] = pd.to_datetime(rs_df_combined['Time'])
-#     rs_df_combined['DOY'] = rs_df_combined['Time'].apply(lambda x: x.timetuple().tm_yday)
-#     return rs_df_combined
-
-# # Process both datasets
-# has_credit_df = process_rs_data(has_credit_details)
-# no_credit_df = process_rs_data(no_credit_details)
-
-# # Convert credit dates to DOY
-# def convert_to_doy(date_string):
-#     date = pd.to_datetime(date_string)
-#     return date.dayofyear
-
-# # Extract DOY for all credit request, authorization, and execution dates
-# credit_req_doy = has_credit_details['credit_req_date'].apply(convert_to_doy).values
-# credit_auth_doy = has_credit_details['credit_auth_date'].dropna().apply(convert_to_doy).values
-# credit_exec_doy = has_credit_details['credit_exec_date'].dropna().apply(convert_to_doy).values
-#     # Visualization: Lagged Correlation and Box Plot in same row but different columns
-# fig, (ax_lag, ax_box) = plt.subplots(nrows=1, ncols=2, figsize=(16, 6))
-
-# # Display dataframes in two columns
-# col1, col2 = st.columns(2)
-    
-# with col1:
-#     st.markdown("**Sample agCelerant data with Credit Details**")
-#     st.dataframe(has_credit_df.head())
-
-# with col2:
-#     st.markdown("**Sample agCelerant data without Credit Details**")
-#     st.dataframe(no_credit_df.head())
-
-# # List of years to plot
-# years = has_credit_df['Time'].dt.year.unique()
-
-# # Visualization: Plot cumulative flooded areas by year with two categories
-# fig, axs = plt.subplots(nrows=2, ncols=3, figsize=(18, 12))
-# axs = axs.flatten()  # Flatten the grid to iterate over each axis easily
-
-
-# ## 5. Boxplot Before and After Credit Events
-
-# window = 7  # Days before and after the event
-# # Loop through each year and plot the cumulative flooded areas
-# for i, year in enumerate(years):
-#     if i >= len(axs):  # Avoid index out of bounds
-#         break
-
-#     ax = axs[i]
-
-#     # Plot "With Credit" data
-#     year_df_with_credit = has_credit_df[has_credit_df['Time'].dt.year == year]
-#     ax.plot(year_df_with_credit['DOY'], year_df_with_credit['Area(ha)'], marker='o', linestyle='-', label=f'With Credit {year}', color='blue')
-
-#     # Plot "Without Credit" data
-#     year_df_without_credit = no_credit_df[no_credit_df['Time'].dt.year == year]
-#     ax.plot(year_df_without_credit['DOY'], year_df_without_credit['Area(ha)'], marker='x', linestyle='--', label=f'Without Credit {year}', color='red')
-
-#     # Customize each subplot
-#     ax.set_title(f'Cumulative Flooded Areas {year}', fontsize=10)
-#     ax.set_xlabel('Day of Year (DOY)')
-#     ax.set_ylabel('Cumulative Flooded Area (ha)')
-#     ax.legend()
-#     ax.grid(True)
-
-
-# st.subheader("Is there any difference in the flooded areas for plots with credit and without credit details?")
-
-# # Hide unused subplots if there are fewer than 6 years
-# for i in range(len(years), 6):
-#     fig.delaxes(axs[i])
-# # Adjust layout to avoid overlapping subplots
-# plt.tight_layout()
-# st.pyplot(fig)
-
-# # Display the plot
-# st.subheader("Is there any relationship between credit and flooding activities for all years?")
-# st.markdown("""
-# - There seems to be a clear short-term relationship between credit execution and flooding, especially within the first few days after credit is granted. This is more evident in some years, particularly 2023 and 2024.
-# - The box plots reinforce the finding that, for some years (particularly 2023 and 2024), flooded areas tend to increase after credit execution, possibly indicating that these years experienced more significant events (such as floods) in response to financial interventions.
-# """)
-
-# # Define function to plot boxplots with colors and label adjustments
-# def plot_boxplot_before_after(ax, df, credit_date, label):
-#     before_date = df[df['DOY'] < credit_date]
-#     after_date = df[df['DOY'] >= credit_date]
-#     # Plot boxplots with colors and rotated labels
-#     box = ax.boxplot([before_date['Area(ha)'], after_date['Area(ha)']], labels=[f'{label} Before', f'{label} After'], patch_artist=True)
-
-#     # Customize the colors of the boxplots
-#     colors = ['#1f77b4', '#ff7f0e']  # Blue for before, orange for after
-#     for patch, color in zip(box['boxes'], colors):
-#         patch.set_facecolor(color)
-
-#     ax.set_title(f'Flooded Area Before and After {label}')
-#     # ax.set_xticklabels([f'{label} Before', f'{label} After'], rotation=45, ha='right')  
-#     ax.set_xticks([1, 2])  # Ensure 2 ticks for "Before" and "After"
-#     #ax.set_xticklabels([f'{label} Before', f'{label} After'], rotation=45, ha='right') 
-#     ax.set_xticklabels([f'Before Credit Execution', f'After Credit Execution'], rotation=45, ha='right') 
-#     ax.tick_params(axis='x', labelsize=10)  # Set the font size for the labels
-
-
-# # Boxplot Before and After Credit Events for each year (in 3 columns and 2 rows)
-# fig_box, axs_box = plt.subplots(2, 3, figsize=(18, 12))
-# axs_box = axs_box.flatten()  # Flatten to easily iterate over each subplot
-
-# for i, year in enumerate(years):
-#     if i >= len(axs_box):  # Avoid index out of bounds
-#         break
-
-#     year_df_with_credit = has_credit_df[has_credit_df['Time'].dt.year == year]
-
-#     # Credit request DOY
-#     if len(credit_req_doy) > 0:
-#         plot_boxplot_before_after(axs_box[i], year_df_with_credit, credit_req_doy[0], f'{year} Credit Request')
-#     # Credit authorization DOY
-#     if len(credit_auth_doy) > 0:
-#         plot_boxplot_before_after(axs_box[i], year_df_with_credit, credit_auth_doy[0], f'{year} Credit Authorization')
-#     # Credit execution DOY
-#     if len(credit_exec_doy) > 0:
-#         plot_boxplot_before_after(axs_box[i], year_df_with_credit, credit_exec_doy[0], f'{year} Credit Execution')
-
-# Adjust layout to avoid overlapping subplots
-# st.markdown('Before and After Credit Events for each year')
-# plt.tight_layout()
-# #st.pyplot(fig_box) --can be reactivated later
-# container = st.container()
-# #ontainer.write("how significant increases in flooded areas after credit execution, which could point to a stronger relationship between credit and increased flooding activity in these years.")
-
-# st.markdown("""
-# **Box Plots for Flooded Area Before and After Credit Execution**:
-# - **Visual Comparison**:
-#     - In most years (2019, 2020, 2021, 2022), the median flooded area appears relatively stable before and after credit execution, but **2023** and **2024** stand out with larger differences.
-#     - **2023** shows a much larger flooded area after credit execution, while **2024** also indicates a noticeable increase in flooded area after credit execution.
-# - **Outliers**: Some outliers (like in 2023) suggest that there were exceptional cases of increased flooded areas after credit execution.
-# - **Conclusion**: While credit execution doesn't seem to drastically change the median flooded area for all years, **2023** and **2024** show significant increases in flooded areas after credit execution, which could point to a stronger relationship between credit and increased flooding activity in these years.
-# """)
-
-# # Post hoc analysis
-# st.subheader('Post hoc analysis for only 2023 data')
-# st.markdown("""
-#             - The linear regression suggests a positive relationship between days_since_credit and Area(ha), but this relationship is not statistically significant (p-value = 0.225).
-#             - The model explains 60% of the variability in the Area(ha) data, which is moderate, but the overall significance of the model is weak.
-#              - P>|t| for days_since_credit is 0.225, which is higher than the significance level of 0.05, meaning this predictor is not statistically significant. 
-#             In simpler terms, we cannot conclude with high confidence that days_since_credit has a significant effect on the Area(ha).
-            
-#             """)
-
-# sub_2023 = has_credit_df[has_credit_df['Year']=='2023']
-# def linear_regression(df, credit_date):
-#     df['days_since_credit'] = df['DOY'] - credit_date
-#     X = sm.add_constant(df['days_since_credit'])  # Adding constant for intercept
-#     y = df['Area(ha)']
-#     model = sm.OLS(y, X).fit()
-#     return model
-
-# # Running linear regression for the period after credit execution
-# regression_model = linear_regression(sub_2023[sub_2023['DOY'] >= credit_exec_doy[0]], credit_exec_doy[0])
-
-# # Displaying regression results
-# st.write(regression_model.summary())
-
-# # _________________Anova analysis
-
-# # Function to divide data into 'before' and 'after' credit execution
-# def divide_before_after(df, credit_date):
-#     before_credit = df[df['DOY'] < credit_date]['Area(ha)']
-#     after_credit = df[df['DOY'] >= credit_date]['Area(ha)']
-#     return before_credit, after_credit
-
-# # Assuming you have 'has_credit_df' dataframe and 'credit_exec_doy' contains the execution dates for each year
-# years = has_credit_df['Time'].dt.year.unique()
-
-# # Initialize an empty list to store ANOVA results
-# anova_results = []
-
-# # Loop through each year and perform ANOVA
-# for year in years:
-#     #st.write(f"### Year: {year}")
-
-#     # Filter data for the current year
-#     year_df_with_credit = has_credit_df[has_credit_df['Time'].dt.year == year]
-
-#     # Get the credit execution date for the current year
-#     credit_exec_date = credit_exec_doy[0]  # Replace with actual execution date per year if available
-
-#     # Divide the flooded area data into before and after credit execution
-#     before_credit, after_credit = divide_before_after(year_df_with_credit, credit_exec_date)
-
-#     # Perform one-way ANOVA
-#     anova_result = stats.f_oneway(before_credit, after_credit)
-
-#     # Store results in the list as a dictionary
-#     anova_results.append({
-#         'Year': year,
-#         'F-statistic': round(anova_result.statistic, 3),
-#         'p-value': round(anova_result.pvalue, 4),
-#         'Significant': 'Yes' if anova_result.pvalue < 0.05 else 'no statistically significant difference between the flooded areas before and after credit execution for {year}'
-#     })
-
-#     # Write ANOVA result
-#     # st.write(f"ANOVA Result for {year}: F-statistic = {anova_result.statistic}, p-value = {anova_result.pvalue}")
-#     # if anova_result.pvalue < 0.05:
-#     #     st.write(f"There is a statistically significant difference between the flooded areas before and after credit execution for {year}.")
-#     # else:
-#     #     st.write(f"There is no statistically significant difference between the flooded areas before and after credit execution for {year}.")
-
-# # Convert the results into a DataFrame
-# anova_df = pd.DataFrame(anova_results)
-
-# # Display the results in a table format
-# st.write("### ANOVA Results Table")
-# st.dataframe(anova_df)
-
-# # Adjust layout to avoid overlap
-# plt.tight_layout()
-
-# # Display the full grid of plots
-# #st.pyplot(fig)
 
 #_____________________________________GIE analysis________________________________________-_______________________________
 st.header("4. GIE Analysis")
