@@ -36,6 +36,7 @@ from google.oauth2 import service_account
 from ee import oauth
 
 ee.Authenticate()
+ee.Initialize('ee-janet')
 service_account = 'my-service-account@...gserviceaccount.com'
 credentials = ee.ServiceAccountCredentials(service_account,'ee-janet-28de169dc342.json')
 ee.Initialize(credentials)
