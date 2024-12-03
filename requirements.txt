@@ -2,8 +2,9 @@
 streamlit
 geemap
 setuptools
-ee
-StringIO
+earthengine-api
+pkg_resources                                                   
+Python-IO
 spicy
 plotly
 contextily
