@@ -35,9 +35,15 @@ import geemap.foliumap as geema
 from google.oauth2 import service_account
 from ee import oauth
 
+
 ee.Authenticate()
-ee.Initialize('ee-janet')
-service_account = 'my-service-account@...gserviceaccount.com'
+def get_auth():
+    service_accounts_keys = st.secrets["ee_keys"]
+    credentials = service_account.Credentials.from_service_account_info(service_accounts_keys, scopes=oauth.SCOPES)
+    ee.Initialize(credentials)
+    return "sucesssfully sync to GEE"
+#ee.Initialize(project='ee-janet')
+service_account = 'flooding-detection-srv@ee-janet.iam.gserviceaccount.com'
 credentials = ee.ServiceAccountCredentials(service_account,'ee-janet-28de169dc342.json')
 ee.Initialize(credentials)
 #from geemap.basemaps import GoogleMapsTileProvider

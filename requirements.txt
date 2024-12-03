@@ -2,7 +2,8 @@
 streamlit
 geemap
 setuptools
-earthengine-api                                                  
+earthengine-api
+google-auth                                                  
 spicy
 plotly
 tqdm
