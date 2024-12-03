@@ -2,12 +2,9 @@
 streamlit
 geemap
 setuptools
-earthengine-api
-pkg_resources                                                   
-Python-IO
+earthengine-api                                                  
 spicy
 plotly
-contextily
 tqdm
 branca
 altair
@@ -19,8 +16,6 @@ pandas
 numpy
 matplotlib
 seaborn
-streamlit
-plotly
 contextily
 scipy
 statsmodels
