@@ -3,6 +3,7 @@ streamlit
 geemap
 setuptools
 ee
+StringIO
 spicy
 plotly
 contextily
