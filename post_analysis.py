@@ -32,17 +32,24 @@ from IPython.display import display
 from branca.colormap import LinearColormap
 import altair as alt
 import geemap.foliumap as geema
+from google.oauth2 import service_account
+from ee import oauth
+
+ee.Authenticate()
+service_account = 'my-service-account@...gserviceaccount.com'
+credentials = ee.ServiceAccountCredentials(service_account,'ee-janet-28de169dc342.json')
+ee.Initialize(credentials)
 #from geemap.basemaps import GoogleMapsTileProvider
 
-
+#________________________________________
 # Use the full page instead of a narrow central column
 st.set_page_config(layout="wide")
 # Title of the Streamlit App
 st.title("Paddy Flooding Detection using Sentinel 2 Analysis (2019-2024)")
 #____________________________FLOODING DETECTION______________________________________________________________________________________
 # Authenticate and initialize the Earth Engine
-ee.Authenticate()
-ee.Initialize(project='ee-janet')
+# ee.Authenticate()
+# ee.Initialize(project='ee-janet')
 
 # Define the grid and region of interest
 grid = ee.FeatureCollection("projects/ee-janet/assets/senegal/52_grid_dagana")

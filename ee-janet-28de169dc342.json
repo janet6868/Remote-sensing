@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "ee-janet",
+  "private_key_id": "28de169dc342827260d1d87ad053060ae3b344dc",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCPct0HV+i92His\nAjcCSqIkduKWDwQ6IZlpECkK8z/vaNLnxCuBBHGqPw5IymiGYTX/k2qPGDfn4C2K\n84lC0Jr6ggmr2kYMhoAbMxF3j7mQeTeEhPz+MBPac+wgTJ13o3GdXTsiB3x5s3l1\nJ1GFJT28VX6nDQajCbdd9+9cOFLn0grFfLRcYA6yKlID41jc71aAn4n1P57x9S6i\nDlZwDcZtTMvv6XhH8UNV/r4irmCsD6kXECxTn93VftNHdyI7iOl7v0lHf/EQsqYl\nVLvLyjWyqPa8DO5wsjejEadusN22rah8928esPcppvNm/XQbNvwl49zeG0W+lazP\nuuVnmCdpAgMBAAECggEAFgCELlApfpTpTVi5nzxbSkSB1IpRF6l3okm8QdW1hL8L\nOkk4cv1/gaFSS4/gIFxgr+aofXI1gPc9hQZ9kyXz32B6o0VDYUBv/bwDfdcpmyM8\nhLLxKvusz+Df4sRdkrAbCQv3uex0ByakBngVZNqlcXGbj3vL/M3MtjkFGZv5+1xd\nQpk3rFbwfkEXmaupx0o0Z8kSgwyy+daZ34LMVXeEI+2z/9HZT8P36i5KVp+4xOpV\n8MJOmh0zz3v5gJLY89xb+cnqETtInWUjnkPIaMAa9Ajt0qLrg2Kn3lMKM1dSv1VW\n1j6+CD+APbZlGvK41qiN0okz8EmlamZvvTf6n/+CEQKBgQDFg1cAp1iBLan18ETq\nDZA6r9+/EokE5n3OtOs5jXFHl4dnLNLLrvymY5tLjmSRaRFUV/Qgf7O4VXDLe1VE\n0NtupTHqMn6X0NCEnh+Rc+UAnXLSgkAq5r9WshMSwinugXgK233WtIc/FDKM5vMq\njOWdAtG0DJiYPX4xIlhQ+GmxUwKBgQC57R/WZ77L1PBEk3wd2Y8Y6ZFiDtfcmnO2\n+Lu37M1aLQbl5RDwzzhDWR6R7phD4w3yQtJO8xmIF9jUPLCl7iilKVMa89zvFVvX\nE3+QgXH/5ytLwzQ1kynoWlsq3zg8w+1vsqadbpswqtTMvmOiC8lc0TEqt0oYq61h\ntYq4fzkA0wKBgQCQwpdkmkJKw04bPBM2O+Smrrpdj1cvaUNx2bXBQ8Jvx0ZtPzPs\nJv9zb/Ok5+MblBcoayI5I390LeLysB0px63cJWU1Efcoi9oYKNBYScngroU2dlJT\nXzWDdBZ4nCghb3Cs/Hv5fezWNZZrIOW+HPA5KJTL0qOQiRlRJ6v1BGxqkwKBgQCu\nVCja9vGN2z3hfswMjPZAbJgVckdyIBvJftU8MjulhryGCE7nC9T8SO6B9E4usRFd\nisv4nLXexkVXUwRqwLC5k9LJXchVIBi5xB2C1+yU/iK5afFlHnRX2YjL3Pq09xyE\n8+SHjrLSYgsfYpC22whWEAtiuvMtyKLMD9VfAmLnYwKBgCoY1WR2w0qCtYg4ya+F\nh5DvXBpqf+FI5yQEBm5ZXYc/ucaCxgIUuunWWmVgo4NhXuHortN6Y7pNAO1r0dMI\nikKuvs95Oe6EvkCn4PcNYLF0nFWvAJcxuWQfJc4wB5EJ6QY9ANMAD7FU0lRKXTfr\nGAgYD898J0gGDZoCZk/kSWlz\n-----END PRIVATE KEY-----\n",
+  "client_email": "flooding-detection-srv@ee-janet.iam.gserviceaccount.com",
+  "client_id": "100285355846921751118",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/flooding-detection-srv%40ee-janet.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
