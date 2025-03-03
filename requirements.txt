@@ -1,4 +1,5 @@
 #install the packages
+IPython
 streamlit
 geemap
 setuptools
