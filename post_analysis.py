@@ -28,7 +28,7 @@ from rasterio.plot import show
 import geemap.colormaps as cm
 import folium
 from matplotlib.dates import DateFormatter, DayLocator
-from IPython.display import display
+#from IPython.display import display
 from branca.colormap import LinearColormap
 import altair as alt
 import geemap.foliumap as geema
